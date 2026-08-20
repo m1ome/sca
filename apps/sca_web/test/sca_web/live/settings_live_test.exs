@@ -40,6 +40,9 @@ defmodule ScaWeb.SettingsLiveTest do
 
     assert html =~ ctx.tenant.settings.webhook_secret
     assert html =~ "Hide"
+
+    # The key carries its own copy button, next to the key itself.
+    assert has_element?(live, ~s(button[aria-label="Copy signing key"]))
   end
 
   test "saves the endpoint, the certificate and the timeout", ctx do

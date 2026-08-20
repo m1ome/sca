@@ -306,13 +306,14 @@ defmodule ScaWeb.SettingsLive do
           />
 
           <div class="space-y-3 px-5 py-5">
-            <p
-              :if={@revealed}
-              id="signing-key"
-              class="break-all rounded-lg border border-line bg-canvas px-3 py-3 font-mono text-xs text-ink"
-            >
-              {@current_tenant.settings.webhook_secret}
-            </p>
+            <div :if={@revealed} class="rounded-lg border border-line bg-canvas px-3 py-3">
+              <.copy_value
+                id="signing-key"
+                value={@current_tenant.settings.webhook_secret}
+                title="Copy signing key"
+                class="font-mono text-xs text-ink"
+              />
+            </div>
 
             <p
               :if={!@revealed}
@@ -327,14 +328,6 @@ defmodule ScaWeb.SettingsLive do
               </.button>
               <.button :if={@revealed} variant="secondary" phx-click="hide" class="flex-1">
                 Hide
-              </.button>
-              <.button
-                :if={@revealed}
-                variant="secondary"
-                phx-click={JS.dispatch("sca:copy", to: "#signing-key")}
-                class="flex-1"
-              >
-                Copy
               </.button>
             </div>
 
@@ -354,9 +347,12 @@ defmodule ScaWeb.SettingsLive do
         description="Shown once. We keep a digest, never the key itself."
       >
         <div class="rounded-xl border border-line bg-canvas px-4 py-4">
-          <p id="issued-key-value" class="break-all font-mono text-xs font-semibold text-ink">
-            {@issued}
-          </p>
+          <.copy_value
+            id="issued-key-value"
+            value={@issued}
+            title="Copy API key"
+            class="font-mono text-xs font-semibold text-ink"
+          />
         </div>
 
         <p class="mt-3 text-xs text-muted">
@@ -365,9 +361,6 @@ defmodule ScaWeb.SettingsLive do
         </p>
 
         <:footer>
-          <.button variant="secondary" phx-click={JS.dispatch("sca:copy", to: "#issued-key-value")}>
-            Copy key
-          </.button>
           <.button phx-click="close-key">Done</.button>
         </:footer>
       </.modal>

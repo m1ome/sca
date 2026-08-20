@@ -15,6 +15,32 @@
   --radius-surface: 12px;
   --radius-modal: 16px;
 
+  /* The one piece of motion in the system: a value blinks when it is copied,
+     because a clipboard write has nothing else to show for itself. */
+  --animate-copied: copied 900ms ease-out;
+
+  /* The halo is a shadow rather than padding: it has to sit around the value
+     without moving it, or every copyable row would be a few pixels off. */
+  @keyframes copied {
+    0%,
+    20% {
+      background-color: var(--color-brand-soft);
+      box-shadow: 0 0 0 3px var(--color-brand-soft);
+    }
+    35% {
+      background-color: transparent;
+      box-shadow: 0 0 0 3px transparent;
+    }
+    50% {
+      background-color: var(--color-brand-soft);
+      box-shadow: 0 0 0 3px var(--color-brand-soft);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: 0 0 0 3px transparent;
+    }
+  }
+
   --spacing-control: 40px;
   --spacing-header: 64px;
   --spacing-sidebar: 228px;

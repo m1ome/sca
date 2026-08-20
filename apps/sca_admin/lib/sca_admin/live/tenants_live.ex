@@ -181,16 +181,16 @@ defmodule ScaAdmin.TenantsLive do
             <span class="truncate">{@credentials.user.email}</span>
           </.field>
           <.field label="Password">
-            <span id="owner-password" class="break-all font-mono text-xs">
-              {@credentials.password}
-            </span>
+            <.copy_value
+              id="owner-password"
+              value={@credentials.password}
+              title="Copy password"
+              class="font-mono text-xs"
+            />
           </.field>
         </dl>
 
         <:footer>
-          <.button variant="secondary" phx-click={JS.dispatch("sca:copy", to: "#owner-password")}>
-            Copy password
-          </.button>
           <.button navigate={~p"/tenants/#{@credentials.tenant.public_id}"}>
             Open merchant
           </.button>

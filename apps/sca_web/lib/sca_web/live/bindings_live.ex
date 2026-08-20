@@ -210,14 +210,20 @@ defmodule ScaWeb.BindingsLive do
             </p>
             <dl class="mt-2 rounded-lg border border-line">
               <.field label="Server address">
-                <span id="connect-url" class="break-all font-mono text-xs">
-                  {ScaWeb.Enrollment.connect_url(@current_tenant)}
-                </span>
+                <.copy_value
+                  id="connect-url"
+                  value={ScaWeb.Enrollment.connect_url(@current_tenant)}
+                  title="Copy server address"
+                  class="font-mono text-xs"
+                />
               </.field>
               <.field label="Code">
-                <span id="activation-token" class="break-all font-mono text-xs">
-                  {@activation.enroll_token}
-                </span>
+                <.copy_value
+                  id="activation-token"
+                  value={@activation.enroll_token}
+                  title="Copy activation code"
+                  class="font-mono text-xs"
+                />
               </.field>
             </dl>
           </details>
@@ -226,12 +232,6 @@ defmodule ScaWeb.BindingsLive do
         <p class="mt-3 text-center text-xs text-muted">Binding {@activation.public_id}</p>
 
         <:footer>
-          <.button
-            variant="secondary"
-            phx-click={JS.dispatch("sca:copy", to: "#activation-token")}
-          >
-            Copy code
-          </.button>
           <.button phx-click="close">Done</.button>
         </:footer>
       </.modal>

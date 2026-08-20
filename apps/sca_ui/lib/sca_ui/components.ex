@@ -4,11 +4,12 @@ defmodule ScaUi.Components do
 
   Tailwind utilities and Heroicons outline only — no component library, no
   page-specific CSS. Everything a screen needs is here: `button/1`, `input/1`,
-  `status/1`, `surface/1`, `row/1`, `page_header/1` and `modal/1`.
+  `status/1`, `surface/1`, `row/1`, `page_header/1`, `copy_value/1` and
+  `modal/1`.
 
-  Two rules from the playbook are enforced by the components themselves:
-  controls are 40px tall with an 8px radius, and a status pill never looks
-  interactive.
+  Three rules from the playbook are enforced by the components themselves:
+  controls are 40px tall with an 8px radius, a status pill never looks
+  interactive, and a value you are meant to copy carries its own button.
   """
 
   use Phoenix.Component
@@ -446,13 +447,51 @@ defmodule ScaUi.Components do
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> JS.hide()}
       class={[
         "rounded-xl border px-4 py-3 text-sm shadow-surface",
-        @kind in [:info, "info"] && "border-line bg-white text-ink",
+        @kind in [:info, "info"] && "border-brand/20 bg-brand-soft text-brand-strong",
         @kind in [:error, "error"] && "border-rose-200 bg-rose-50 text-rose-700"
       ]}
     >
       {@message}
     </div>
     """
+  end
+
+  @doc """
+  A value with a copy button beside it — a key, a one-time password, a token.
+
+  The button sits next to what it copies rather than in the corner of the
+  dialog: with two codes on one screen, a button labelled "Copy" says nothing
+  about which one it takes. And since a clipboard write has nothing to show for
+  itself, the value blinks when it lands.
+  """
+  attr(:id, :string, required: true)
+  attr(:value, :string, required: true)
+  attr(:title, :string, default: "Copy")
+  attr(:class, :string, default: nil, doc: "styling for the value itself")
+
+  def copy_value(assigns) do
+    ~H"""
+    <div class="flex w-full items-start justify-between gap-2">
+      <span id={@id} class={["min-w-0 break-all rounded", @class]}>{@value}</span>
+      <button
+        type="button"
+        phx-click={copy(@id)}
+        title={@title}
+        aria-label={@title}
+        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
+      >
+        <.icon name="hero-clipboard-document" class="h-4 w-4" />
+      </button>
+    </div>
+    """
+  end
+
+  # The clipboard write is the browser's; the blink is entirely client-side, so
+  # copying a password never costs a round trip to the server.
+  defp copy(id) do
+    "sca:copy"
+    |> JS.dispatch(to: "##{id}")
+    |> JS.transition("animate-copied", to: "##{id}", time: 900)
   end
 
   @doc "A Heroicons outline glyph."

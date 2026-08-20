@@ -156,19 +156,16 @@ defmodule ScaWeb.TeamMemberLive do
       >
         <p class="text-sm text-ink">{@member.email}</p>
 
-        <div class="mt-3 rounded-xl border border-line bg-canvas px-4 py-4 text-center">
-          <p id="reset-password-value" class="break-all font-mono text-sm font-semibold text-ink">
-            {@password}
-          </p>
+        <div class="mt-3 rounded-xl border border-line bg-canvas px-4 py-4">
+          <.copy_value
+            id="reset-password-value"
+            value={@password}
+            title="Copy password"
+            class="font-mono text-sm font-semibold text-ink"
+          />
         </div>
 
         <:footer>
-          <.button
-            variant="secondary"
-            phx-click={JS.dispatch("sca:copy", to: "#reset-password-value")}
-          >
-            Copy password
-          </.button>
           <.button phx-click="close">Done</.button>
         </:footer>
       </.modal>
