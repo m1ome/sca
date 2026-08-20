@@ -31,6 +31,7 @@ defmodule ScaUi.Shell do
   attr :title, :string, required: true
   attr :subtitle, :string, default: nil
   attr :identity, :string, required: true
+  attr :identity_path, :string, default: nil
   attr :sign_out_path, :string, required: true
   slot :inner_block, required: true
 
@@ -73,7 +74,18 @@ defmodule ScaUi.Shell do
             <span class="text-sm font-semibold text-ink">{@active}</span>
 
             <div class="flex items-center gap-3">
-              <span class="hidden text-xs text-muted sm:block">{@identity}</span>
+              <.link
+                :if={@identity_path}
+                navigate={@identity_path}
+                title="Your account"
+                class="hidden items-center gap-2 rounded-lg px-2 py-1 text-xs text-muted transition hover:bg-slate-50 hover:text-ink sm:flex"
+              >
+                <.icon name="hero-user-circle" class="h-4 w-4" />
+                {@identity}
+              </.link>
+              <span :if={!@identity_path} class="hidden text-xs text-muted sm:block">
+                {@identity}
+              </span>
               <.link
                 href={@sign_out_path}
                 method="delete"

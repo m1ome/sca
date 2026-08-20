@@ -35,6 +35,7 @@ defmodule ScaWeb.Layouts do
       title={@current_tenant.name}
       subtitle={@current_tenant.public_id}
       identity={@current_user.email}
+      identity_path={~p"/account"}
       sign_out_path={~p"/log-out"}
     >
       {render_slot(@inner_block)}

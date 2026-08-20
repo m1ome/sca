@@ -34,6 +34,7 @@ defmodule ScaAdmin.Layouts do
       title="Enum8"
       subtitle="Admin console"
       identity={@current_admin.email}
+      identity_path={~p"/settings"}
       sign_out_path={~p"/log-out"}
     >
       {render_slot(@inner_block)}

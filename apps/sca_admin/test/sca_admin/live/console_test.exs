@@ -240,6 +240,12 @@ defmodule ScaAdmin.ConsoleTest do
     end
   end
 
+  test "the header links to your own account", ctx do
+    {:ok, _live, html} = live(ctx.conn, ~p"/tenants")
+
+    assert html =~ ~s(href="/settings")
+  end
+
   describe "settings" do
     test "changes your own password, once you prove the current one", ctx do
       %{admin: admin, password: password} = Fixtures.staff()

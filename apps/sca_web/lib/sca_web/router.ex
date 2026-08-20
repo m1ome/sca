@@ -41,6 +41,7 @@ defmodule ScaWeb.Router do
       live "/team", TeamLive
       live "/team/:id", TeamMemberLive
       live "/settings", SettingsLive
+      live "/account", AccountLive
     end
   end
 
