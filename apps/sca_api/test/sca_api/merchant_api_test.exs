@@ -5,6 +5,8 @@ defmodule ScaApi.MerchantApiTest do
 
   alias Sca.Actions
   alias Sca.Repos.ApiTokenRepo
+  alias Sca.Repos.BindingRepo
+  alias Sca.Repos.RequestRepo
   alias ScaApi.Fixtures
 
   setup %{conn: conn} do
@@ -12,6 +14,8 @@ defmodule ScaApi.MerchantApiTest do
 
     %{conn: authorized(conn, token), tenant: tenant, api_token: token}
   end
+
+  defp with_key(conn, key), do: Plug.Conn.put_req_header(conn, "idempotency-key", key)
 
   defp authorized(conn, token) do
     conn
@@ -59,7 +63,7 @@ defmodule ScaApi.MerchantApiTest do
       assert %{"id" => id, "external_id" => "customer-4471", "status" => "pending"} =
                body = json_response(conn, 201)
 
-      assert id =~ ~r/\ABIN-\d+\z/
+      assert {:ok, _uuid} = Ecto.UUID.cast(id)
       assert %{"code" => code, "nonce" => nonce, "expires_at" => expires_at} = body["activation"]
       assert is_binary(code) and is_binary(nonce) and is_binary(expires_at)
     end
@@ -81,13 +85,13 @@ defmodule ScaApi.MerchantApiTest do
       conn = get(ctx.conn, ~p"/api/merchant/v1/bindings")
 
       assert %{"data" => [binding], "page" => %{"total_count" => 1}} = json_response(conn, 200)
-      assert binding["id"] == device.binding.public_id
+      assert binding["id"] == device.binding.id
     end
 
     test "revoking retires the device", ctx do
       device = Fixtures.device(ctx.tenant)
 
-      conn = post(ctx.conn, ~p"/api/merchant/v1/bindings/#{device.binding.public_id}/revoke")
+      conn = post(ctx.conn, ~p"/api/merchant/v1/bindings/#{device.binding.id}/revoke")
 
       assert %{"status" => "revoked"} = json_response(conn, 200)
     end
@@ -96,9 +100,132 @@ defmodule ScaApi.MerchantApiTest do
       stranger = Fixtures.merchant()
       theirs = Fixtures.device(stranger.tenant, "customer-9")
 
-      conn = get(ctx.conn, ~p"/api/merchant/v1/bindings/#{theirs.binding.public_id}")
+      conn = get(ctx.conn, ~p"/api/merchant/v1/bindings/#{theirs.binding.id}")
 
       assert %{"error" => %{"code" => "not_found"}} = json_response(conn, 404)
+    end
+  end
+
+  describe "idempotency" do
+    test "a repeated enrollment answers with the first one, code and all", ctx do
+      body = %{external_id: "customer-1", name: "Dana's iPhone"}
+
+      first =
+        ctx.conn |> with_key("enroll-key-1") |> post(~p"/api/merchant/v1/bindings", body)
+
+      assert %{"id" => id, "activation" => %{"code" => code}} = json_response(first, 201)
+
+      second =
+        ctx.conn |> with_key("enroll-key-1") |> post(~p"/api/merchant/v1/bindings", body)
+
+      # Not 201: nothing was created this time. And the same activation code,
+      # because the merchant may already be showing it as a QR.
+      assert %{"id" => ^id, "activation" => %{"code" => ^code}} = json_response(second, 200)
+      assert BindingRepo.list_by_tenant(ctx.tenant) |> length() == 1
+    end
+
+    test "a repeated approval raises one card, not two", ctx do
+      device = Fixtures.device(ctx.tenant)
+
+      body = %{
+        binding: device.binding.id,
+        type: "login",
+        title: "Sign in",
+        params: %{ip: "1.2.3.4"}
+      }
+
+      first = ctx.conn |> with_key("raise-key-1") |> post(~p"/api/merchant/v1/approvals", body)
+      assert %{"id" => id} = json_response(first, 201)
+
+      second = ctx.conn |> with_key("raise-key-1") |> post(~p"/api/merchant/v1/approvals", body)
+      assert %{"id" => ^id} = json_response(second, 200)
+
+      assert [_one] = RequestRepo.list_pending(device.binding)
+    end
+
+    test "the key wins over the body: a second call raises nothing new", ctx do
+      device = Fixtures.device(ctx.tenant)
+
+      first =
+        ctx.conn
+        |> with_key("raise-key-2")
+        |> post(~p"/api/merchant/v1/approvals", %{
+          binding: device.binding.id,
+          type: "login",
+          title: "Sign in",
+          params: %{ip: "1.2.3.4"}
+        })
+
+      assert %{"id" => id} = json_response(first, 201)
+
+      second =
+        ctx.conn
+        |> with_key("raise-key-2")
+        |> post(~p"/api/merchant/v1/approvals", %{
+          binding: device.binding.id,
+          type: "login",
+          title: "Sign in somewhere else",
+          params: %{ip: "5.6.7.8"}
+        })
+
+      # The key says "this call", so the first card is the answer — the device
+      # is already showing it, and a second one would be the bug.
+      assert %{"id" => ^id, "title" => "Sign in"} = json_response(second, 200)
+      assert [_one] = RequestRepo.list_pending(device.binding)
+    end
+
+    test "a key belongs to one merchant's data, not to a device of another", ctx do
+      device = Fixtures.device(ctx.tenant)
+      %{tenant: other, api_token: other_token} = Fixtures.merchant()
+      theirs = Fixtures.device(other)
+
+      body = %{type: "login", title: "Sign in", params: %{ip: "1.2.3.4"}}
+
+      assert %{"id" => mine} =
+               ctx.conn
+               |> with_key("same-key")
+               |> post(~p"/api/merchant/v1/approvals", Map.put(body, :binding, device.binding.id))
+               |> json_response(201)
+
+      assert %{"id" => not_mine} =
+               Phoenix.ConnTest.build_conn()
+               |> authorized(other_token)
+               |> with_key("same-key")
+               |> post(~p"/api/merchant/v1/approvals", Map.put(body, :binding, theirs.binding.id))
+               |> json_response(201)
+
+      refute mine == not_mine
+    end
+
+    test "without the header every call is its own", ctx do
+      body = %{external_id: "customer-1"}
+
+      assert %{"id" => first} =
+               ctx.conn |> post(~p"/api/merchant/v1/bindings", body) |> json_response(201)
+
+      assert %{"id" => second} =
+               ctx.conn |> post(~p"/api/merchant/v1/bindings", body) |> json_response(201)
+
+      # Same person, so the same binding row is reused — but a fresh code, which
+      # is exactly what an unkeyed retry cannot avoid.
+      assert first == second
+    end
+
+    test "one merchant's key means nothing to another", ctx do
+      %{tenant: other, api_token: other_token} = Fixtures.merchant()
+      body = %{external_id: "customer-1"}
+
+      ctx.conn |> with_key("shared-key") |> post(~p"/api/merchant/v1/bindings", body)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> authorized(other_token)
+        |> with_key("shared-key")
+        |> post(~p"/api/merchant/v1/bindings", body)
+
+      assert %{"id" => id} = json_response(conn, 201)
+      assert {:ok, binding} = BindingRepo.get(id)
+      assert binding.tenant_id == other.id
     end
   end
 
@@ -117,7 +244,7 @@ defmodule ScaApi.MerchantApiTest do
       assert %{"id" => id, "status" => "pending", "payload_hash" => hash} =
                body = json_response(conn, 201)
 
-      assert id =~ ~r/\AREQ-\d+\z/
+      assert {:ok, _uuid} = Ecto.UUID.cast(id)
       assert byte_size(hash) == 64
       assert body["params"]["amount"] == "149.90"
       assert body["binding"]["external_id"] == "customer-1"
@@ -160,12 +287,12 @@ defmodule ScaApi.MerchantApiTest do
       assert %{"data" => [listed]} =
                ctx.conn |> get(~p"/api/merchant/v1/approvals") |> json_response(200)
 
-      assert listed["id"] == request.public_id
+      assert listed["id"] == request.id
 
-      conn = post(ctx.conn, ~p"/api/merchant/v1/approvals/#{request.public_id}/cancel")
+      conn = post(ctx.conn, ~p"/api/merchant/v1/approvals/#{request.id}/cancel")
       assert %{"status" => "cancelled"} = json_response(conn, 200)
 
-      conn = post(ctx.conn, ~p"/api/merchant/v1/approvals/#{request.public_id}/cancel")
+      conn = post(ctx.conn, ~p"/api/merchant/v1/approvals/#{request.id}/cancel")
       assert %{"error" => %{"code" => "not_pending"}} = json_response(conn, 409)
     end
   end

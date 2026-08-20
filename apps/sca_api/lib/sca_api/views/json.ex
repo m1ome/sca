@@ -9,9 +9,11 @@ defmodule ScaApi.JSON do
 
   The device shapes match what the mobile client parses — `params` for the card
   fields, `payload_hash` for the hash over them, `connection_id` for a binding.
+
+  Every `id` here is the row's UUID. Human-readable ids are for people reading
+  a console, not for code holding a reference.
   """
 
-  alias Sca.Models.ApiToken
   alias Sca.Models.Binding
   alias Sca.Models.Request
 
@@ -48,7 +50,7 @@ defmodule ScaApi.JSON do
   @doc "An approval, as a merchant reads it."
   def approval(%Request{} = request, %Binding{} = binding) do
     %{
-      id: request.public_id,
+      id: request.id,
       external_id: request.external_id,
       type: to_string(request.type),
       status: to_string(request.status),
@@ -85,18 +87,6 @@ defmodule ScaApi.JSON do
     })
   end
 
-  @doc "An API key, without the key."
-  def api_token(%ApiToken{} = token) do
-    %{
-      id: token.public_id,
-      name: token.name,
-      preview: token.preview,
-      last_used_at: timestamp(token.last_used_at),
-      revoked_at: timestamp(token.revoked_at),
-      created_at: timestamp(token.inserted_at)
-    }
-  end
-
   @doc "A list with its page, so a caller can walk it."
   def page(entries, %Flop.Meta{} = meta) do
     %{
@@ -117,7 +107,7 @@ defmodule ScaApi.JSON do
 
   defp binding_summary(%Binding{} = binding) do
     %{
-      id: binding.public_id,
+      id: binding.id,
       external_id: binding.external_id,
       name: binding.name,
       status: to_string(binding.status),

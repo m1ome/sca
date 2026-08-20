@@ -96,6 +96,16 @@ defmodule ScaApi.DeviceApiTest do
                |> json_response(404)
     end
 
+    test "the prefix takes the merchant's uuid too", ctx do
+      device = Fixtures.device(ctx.tenant)
+
+      assert [] =
+               ctx.conn
+               |> as_device(device)
+               |> get("/t/#{ctx.tenant.id}/api/sca/v1/authorizations")
+               |> json_response(200)
+    end
+
     test "a merchant that does not exist is refused before anything else", ctx do
       device = Fixtures.device(ctx.tenant)
 

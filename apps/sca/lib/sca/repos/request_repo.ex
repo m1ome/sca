@@ -9,6 +9,13 @@ defmodule Sca.Repos.RequestRepo do
   alias Sca.Models.Request
   alias Sca.Models.Tenant
 
+  @doc "The request a merchant's idempotency key already produced, if any."
+  @spec get_by_idempotency_key(Tenant.t(), String.t()) ::
+          {:ok, Request.t()} | {:error, :not_found}
+  def get_by_idempotency_key(%Tenant{id: tenant_id}, key) when is_binary(key) do
+    get_by(tenant_id: tenant_id, idempotency_key: key)
+  end
+
   @spec record_decision(Request.t(), Request.status(), map()) ::
           {:ok, Request.t()} | {:error, Ecto.Changeset.t()}
   def record_decision(%Request{} = request, status, attrs) do

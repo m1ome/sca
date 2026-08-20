@@ -127,6 +127,14 @@ This is a web application written using the Phoenix web framework.
   status codes and the 401/403 distinction cannot change without changing it.
 - Response shapes are written by hand in `ScaApi.JSON`, never derived from
   schemas: a new column must not leak outward on its own.
+- The API names resources by uuid. `public_id` is for people reading a console;
+  it must not appear in a request or a response. The one exception is the
+  `/t/:tenant` prefix, which is an address people sometimes type.
+- Anything in the merchant API that creates something takes an
+  `Idempotency-Key`, stored on the entity itself and unique per tenant
+  (`bindings.idempotency_key`, `requests.idempotency_key`). A retry finds the
+  row the key already produced and answers with it — no second entity, and no
+  central bookkeeping to keep in step with the data.
 - Both authentications are plugs (`ScaApi.DeviceAuth`, `ScaApi.MerchantAuth`) and
   both put a `Sca.Scope` in the conn; controllers go through it.
 - An error goes out as `{"error": {"code", "message", "fields"}}`, the fields

@@ -25,7 +25,7 @@ defmodule Sca.Models.Binding do
   @max_failed_attempts 5
 
   @required_fields ~w(external_id status tenant_id)a
-  @optional_fields ~w(name push_token push_platform)a
+  @optional_fields ~w(name push_token push_platform idempotency_key)a
   @all_fields @required_fields ++ @optional_fields
 
   @activation_fields ~w(public_key algorithm device_info attested attestation_type
@@ -43,6 +43,10 @@ defmodule Sca.Models.Binding do
 
     field :external_id, :string
     field :name, :string, default: ""
+
+    # The merchant's own key for "this call, not another one". Unique per
+    # tenant, so a retried enrollment finds its own row instead of resetting it.
+    field :idempotency_key, :string
     field :status, Ecto.Enum, values: @statuses, default: :pending
 
     field :enroll_token, :string
@@ -99,6 +103,7 @@ defmodule Sca.Models.Binding do
     |> validate_length(:external_id, min: 1, max: 160)
     |> assoc_constraint(:tenant)
     |> unique_constraint(:external_id, name: :bindings_tenant_id_external_id_index)
+    |> unique_constraint(:idempotency_key, name: :bindings_tenant_id_idempotency_key_index)
   end
 
   @doc """

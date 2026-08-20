@@ -34,6 +34,13 @@ defmodule Sca.Repos.BindingRepo do
     get_by(tenant_id: tenant_id, external_id: external_id)
   end
 
+  @doc "The binding a merchant's idempotency key already produced, if any."
+  @spec get_by_idempotency_key(Tenant.t(), String.t()) ::
+          {:ok, Binding.t()} | {:error, :not_found}
+  def get_by_idempotency_key(%Tenant{id: tenant_id}, key) when is_binary(key) do
+    get_by(tenant_id: tenant_id, idempotency_key: key)
+  end
+
   @spec get_by_enroll_token(String.t()) :: {:ok, Binding.t()} | {:error, :not_found}
   def get_by_enroll_token(token) when is_binary(token), do: get_by(enroll_token: token)
 

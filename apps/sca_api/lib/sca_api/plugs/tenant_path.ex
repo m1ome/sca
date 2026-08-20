@@ -1,7 +1,7 @@
 defmodule ScaApi.TenantPath do
   @moduledoc """
   Resolves the merchant named in the path, for device calls made under
-  `/t/:tenant`.
+  `/t/:tenant` — by uuid or by the readable `TNT-…`.
 
   The QR hands the phone a tenant-scoped base URL and every later call keeps
   that prefix, so the merchant is visible in the path — to a proxy deciding
@@ -18,14 +18,24 @@ defmodule ScaApi.TenantPath do
 
   def init(opts), do: opts
 
-  def call(%{params: %{"tenant" => public_id}} = conn, _opts) do
-    case TenantRepo.get_by_public_id(public_id) do
+  def call(%{params: %{"tenant" => reference}} = conn, _opts) do
+    case fetch(reference) do
       {:ok, tenant} -> assign(conn, :path_tenant, tenant)
       {:error, :not_found} -> halt_with(conn, 404, "unknown_merchant")
     end
   end
 
   def call(conn, _opts), do: conn
+
+  # The prefix is an address rather than a resource id: it goes into a QR and
+  # gets typed in by hand when the camera will not cooperate, so `TNT-1` is
+  # worth accepting next to the uuid.
+  defp fetch(reference) do
+    case Ecto.UUID.cast(reference) do
+      {:ok, uuid} -> TenantRepo.get(uuid)
+      :error -> TenantRepo.get_by_public_id(reference)
+    end
+  end
 
   @doc """
   Refuses an entity that belongs to a different merchant than the path names.

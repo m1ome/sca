@@ -21,7 +21,7 @@ defmodule Sca.Models.Request do
   @max_description_length 500
 
   @required_fields ~w(type title nonce status expires_at tenant_id binding_id)a
-  @optional_fields ~w(external_id description payload)a
+  @optional_fields ~w(external_id description payload idempotency_key)a
   @all_fields @required_fields ++ @optional_fields
 
   @decision_fields ~w(signed_payload signature signature_algorithm)a
@@ -38,6 +38,9 @@ defmodule Sca.Models.Request do
     public_id_field()
 
     field :external_id, :string
+
+    # The merchant's own key for "this call, not another one", unique per tenant.
+    field :idempotency_key, :string
     field :type, Ecto.Enum, values: @types
     field :title, :string
     field :description, :string, default: ""
@@ -69,6 +72,7 @@ defmodule Sca.Models.Request do
     |> assoc_constraint(:tenant)
     |> assoc_constraint(:binding)
     |> unique_constraint(:external_id, name: :requests_tenant_id_external_id_index)
+    |> unique_constraint(:idempotency_key, name: :requests_tenant_id_idempotency_key_index)
   end
 
   @doc """

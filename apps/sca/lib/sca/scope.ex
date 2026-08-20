@@ -43,6 +43,19 @@ defmodule Sca.Scope do
   @spec fetch_binding(t(), String.t()) :: {:ok, Models.Binding.t()} | {:error, :not_found}
   def fetch_binding(scope, public_id), do: scoped(scope, BindingRepo.get_by_public_id(public_id))
 
+  @doc """
+  Looks a binding up by its id, inside the scope.
+
+  A malformed id is simply not found: an API answers about what exists, it does
+  not teach a caller what a well-formed id looks like.
+  """
+  @spec fetch_binding_by_id(t(), String.t()) :: {:ok, Models.Binding.t()} | {:error, :not_found}
+  def fetch_binding_by_id(scope, id), do: by_id(scope, BindingRepo, id)
+
+  @doc "Looks a request up by its id, inside the scope."
+  @spec fetch_request_by_id(t(), String.t()) :: {:ok, Models.Request.t()} | {:error, :not_found}
+  def fetch_request_by_id(scope, id), do: by_id(scope, RequestRepo, id)
+
   @doc "Looks a binding up by the merchant's own identifier."
   @spec fetch_binding_by_external_id(t(), String.t()) ::
           {:ok, Models.Binding.t()} | {:error, :not_found}
@@ -76,6 +89,15 @@ defmodule Sca.Scope do
   def fetch_delivery(scope, public_id) do
     scoped(scope, WebhookDeliveryRepo.get_by_public_id(public_id))
   end
+
+  defp by_id(scope, repo, id) when is_binary(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> scoped(scope, repo.get(uuid))
+      :error -> {:error, :not_found}
+    end
+  end
+
+  defp by_id(_scope, _repo, _id), do: {:error, :not_found}
 
   defp scoped(scope, {:ok, entity}) do
     if owns?(scope, entity), do: {:ok, entity}, else: {:error, :not_found}
