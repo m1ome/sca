@@ -17,9 +17,6 @@ defmodule Sca.MixProject do
     ]
   end
 
-  # Configuration for the OTP application.
-  #
-  # Type `mix help compile.app` for more information.
   def application do
     [
       mod: {Sca.Application, []},
@@ -27,13 +24,9 @@ defmodule Sca.MixProject do
     ]
   end
 
-  # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  # Specifies your project dependencies.
-  #
-  # Type `mix help deps` for examples and options.
   defp deps do
     [
       {:dns_cluster, "~> 0.2.0"},
@@ -46,14 +39,20 @@ defmodule Sca.MixProject do
       {:oban, "~> 2.23"},
       {:oban_met, "~> 1.3"},
       {:timex, "~> 3.7"},
+      {:bcrypt_elixir, "~> 3.3"},
+      {:jose, "~> 1.11"},
+      {:goth, "~> 1.4"},
+      {:money, "~> 1.15"},
+      {:telemetry_metrics, "~> 1.0"},
+      {:sentry, "~> 11.0"},
+      {:flop, "~> 0.26"},
+      {:decimal, "~> 3.0"},
       {:ex_machina, "~> 2.8", only: :test},
+      {:mox, "~> 1.2", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
-  # Aliases are shortcuts or tasks specific to the current project.
-  #
-  # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup"],

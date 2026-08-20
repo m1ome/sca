@@ -17,12 +17,12 @@ defmodule Sca.Repo.Migration do
 
       add_public_id(:tenants, "TN")
 
-  Rows then get `TN-1`, `TN-2`, ... Numbering is done by Postgres, so
+  Rows then get `TNT-1`, `TNT-2`, ... Numbering is done by Postgres, so
   concurrent inserts cannot collide and application code never has to know
   about the counter. The sequence is owned by the column, so dropping the
   table drops it too.
 
-  Note that sequential identifiers are enumerable — `TN-137` tells anyone
+  Note that sequential identifiers are enumerable — `TNT-137` tells anyone
   holding it how many tenants exist. If that ever matters, the suffix can be
   swapped for a random one without changing the `PREFIX-suffix` shape.
   """

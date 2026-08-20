@@ -1,84 +1,88 @@
-# SCA — SaaS-бэкенд
+# SCA
 
-Strong Customer Authentication как сервис: мерчанты подключаются по API, их
-пользователи подтверждают действия (платежи, логины) криптографической подписью
-на привязанном устройстве. Прототип логики — в соседнем репозитории
-`../sca-proto` (Go), мобильный клиент — `../sca-client` (Flutter).
+Strong Customer Authentication as a service. Merchants integrate over HTTP;
+their users approve payments and logins with a cryptographic signature on a
+bound device.
 
-Это umbrella-проект на Elixir/Phoenix: домен отдельно, три HTTP-входа отдельно.
+An Elixir/Phoenix umbrella: one domain, three HTTP entrypoints.
 
-## Структура
-
-| Приложение | Что это | Порт (dev) |
+| Application | What it is | Dev port |
 |---|---|---|
-| `apps/sca` | Бизнес-логика: `Sca.Repo`, контексты, Oban-воркеры, фабрики для тестов | — |
-| `apps/sca_api` | JSON API для внешних мерчантов (без HTML и ассетов) | 4001 |
-| `apps/sca_web` | Веб-кабинет мерчанта (LiveView) | 4000 |
-| `apps/sca_admin` | Внутренняя админка (LiveView, Oban Web) | 4002 |
+| `apps/sca` | Domain: models, repos, actions, Oban workers | — |
+| `apps/sca_api` | JSON API for merchants and for devices | 4001 |
+| `apps/sca_web` | Merchant console (LiveView) | 4000 |
+| `apps/sca_admin` | Internal admin console (LiveView, Oban Web) | 4002 |
+| `apps/sca_ui` | Design system shared by both consoles | — |
 
-Доступ к базе есть только у `apps/sca` — веб-приложения ходят в домен через
-его публичное API, а не в `Repo` напрямую.
+Only `apps/sca` talks to the database.
 
-## Запуск
+## Running it
 
 ```bash
-docker compose up -d db     # Postgres 18 на localhost:55433
-mix setup                   # deps, ассеты, ecto.create + migrate
-mix phx.server              # поднимает все три эндпоинта разом
+docker compose up -d db     # Postgres 18 on localhost:55433
+mix setup                   # deps, assets, ecto.create + migrate
+mix ecto.reset              # development data; prints the login at the end
+mix phx.server              # all three endpoints at once
 ```
 
-- кабинет мерчанта — <http://localhost:4000>
+- merchant console — <http://localhost:4000>
 - API — <http://localhost:4001>
-- админка — <http://localhost:4002>, очереди Oban — <http://localhost:4002/dev/oban>,
-  LiveDashboard — <http://localhost:4002/dev/dashboard>
+- admin console — <http://localhost:4002>, Oban at `/dev/oban`, LiveDashboard at
+  `/dev/dashboard`
 
-Порт 55433, а не 5432, чтобы не конфликтовать ни с системным Postgres, ни с
-базой `sca-proto` (55432). В проде всё берётся из `DATABASE_URL`,
-`SECRET_KEY_BASE` и `WEB_PORT` / `API_PORT` / `ADMIN_PORT` (`config/runtime.exs`).
-
-## Разработка
+## Development
 
 ```bash
-mix test          # тесты всех приложений
+mix test          # every application
 mix lint          # format --check-formatted + credo --strict
-mix precommit     # компиляция без варнингов, format, credo, тесты
+mix precommit     # compile --warnings-as-errors, format, credo, test
+mix typecheck     # dialyzer; the first run builds a PLT and takes minutes
 ```
 
-Тестовая база — `sca_test` на том же контейнере, песочница Ecto. Фабрики —
-`Sca.Factory` (ExMachina). Джобы в тестах не выполняются (`Oban` в режиме
-`testing: :manual`), проверяются через `Oban.Testing`.
+Tests run against `sca_test` on the same container, in the Ecto sandbox.
+Factories are `Sca.Factory` (ExMachina). Oban is in `testing: :manual`, so jobs
+are asserted with `Oban.Testing` rather than executed.
 
-## Идентификаторы
+## The APIs
 
-Первичный ключ везде — UUID (`binary_id`). Рядом с ним у сущностей есть
-человеко-читаемый `public_id`: `TN-1` у тенанта, `CON-42` у коннекта. Его
-генерирует Postgres из отдельной последовательности на каждую таблицу, поэтому
-параллельные вставки не конфликтуют.
+Both live in `apps/sca_api`; the routes are in `ScaApi.Router`.
 
-```elixir
-# миграция
-create table(:tenants, primary_key: false) do
-  add :id, :binary_id, primary_key: true
-  timestamps(type: :utc_datetime_usec)
-end
+- `/api/sca/v1` — the device API, also served under `/t/:tenant` (which is what
+  the enrollment QR points a phone at, so the merchant is in every device call).
+  Its shape is fixed by the mobile client already in people's hands. Bearer
+  token per binding, issued at enrollment.
+- `/api/merchant/v1` — the merchant API: bindings and approvals. API key
+  (`Authorization: Bearer sca_…`), issued in the merchant console under
+  Settings → API keys and shown once.
 
-Sca.Repo.Migration.add_public_id(:tenants, "TN")
+## Building and deploying
 
-# схема
-defmodule Sca.Tenants.Tenant do
-  use Sca.Schema, public_id: "TN"
+Everything ships as one release, `sca`: the domain, the API and both consoles in
+a single image.
 
-  schema "tenants" do
-    public_id_field()
-    timestamps()
-  end
-end
+```bash
+docker build -t sca .
+docker run --rm -e DATABASE_URL=… -e SECRET_KEY_BASE=… sca /app/bin/migrate
+docker run -e DATABASE_URL=… -e SECRET_KEY_BASE=… -e PHX_HOST=sca.example.com \
+  -p 4000-4002:4000-4002 sca
 ```
 
-Разбор и проверка приходящего от пользователя идентификатора — `Sca.PublicId`
-(`parse/1`, `belongs_to?/2`).
+Migrations are a deploy step of their own (`/app/bin/migrate`), not something
+the container does on boot. The release starts the endpoints itself.
 
-## Что дальше
+| Variable | What it does |
+|---|---|
+| `SECRET_KEY_BASE` | required; signs cookies — `mix phx.gen.secret` |
+| `DATABASE_URL` | required, `ecto://USER:PASS@HOST/DATABASE` |
+| `POOL_SIZE`, `ECTO_IPV6`, `DATABASE_SSL` | database tuning; defaults are 10, off, off |
+| `PHX_HOST` | domain for absolute links and LiveView's origin check |
+| `WEB_HOST`, `API_HOST`, `ADMIN_HOST` | per-endpoint overrides of `PHX_HOST` |
+| `WEB_PORT`, `API_PORT`, `ADMIN_PORT` | default 4000, 4001, 4002 |
+| `FCM_CREDENTIALS` | Firebase service account JSON, base64; without it push is off |
+| `FCM_PROJECT_ID` | when the project differs from the one in the key |
+| `SENTRY_DSN` | without it crash reporting is inert |
 
-Доменные сущности (тенанты, коннекты, авторизации), проверка подписей ECDSA
-P-256, пуши, аутентификация мерчанта и админа, Dockerfile и CI.
+## Not done yet
+
+Attestation (Android Key / Apple App Attest — the fields exist, the verification
+does not), rate limiting on the API, CI.

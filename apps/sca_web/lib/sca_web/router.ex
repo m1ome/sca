@@ -1,6 +1,8 @@
 defmodule ScaWeb.Router do
   use ScaWeb, :router
 
+  import ScaWeb.Auth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,6 +10,7 @@ defmodule ScaWeb.Router do
     plug :put_root_layout, html: {ScaWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_user
   end
 
   pipeline :api do
@@ -15,23 +18,33 @@ defmodule ScaWeb.Router do
   end
 
   scope "/", ScaWeb do
-    pipe_through :browser
+    pipe_through [:browser, :redirect_if_authenticated]
 
-    get "/", PageController, :home
+    get "/log-in", SessionController, :new
+    post "/log-in", SessionController, :create
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", ScaWeb do
-  #   pipe_through :api
-  # end
+  scope "/", ScaWeb do
+    pipe_through [:browser, :require_authenticated_user]
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+    delete "/log-out", SessionController, :delete
+
+    live_session :console,
+      on_mount: {ScaWeb.Auth, :ensure_authenticated},
+      layout: false do
+      live "/", OverviewLive
+      live "/approvals", ApprovalsLive
+      live "/approvals/:id", ApprovalLive
+      live "/bindings", BindingsLive
+      live "/bindings/:id", BindingLive
+      live "/webhooks", WebhooksLive
+      live "/team", TeamLive
+      live "/team/:id", TeamMemberLive
+      live "/settings", SettingsLive
+    end
+  end
+
   if Application.compile_env(:sca_web, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do

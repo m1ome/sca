@@ -18,12 +18,17 @@ defmodule Sca.DataCase do
 
   using do
     quote do
+      use Oban.Testing, repo: Sca.Repo
+
       alias Sca.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
       import Sca.DataCase
+      import Sca.Factory
+
+      alias Sca.Support.Device
     end
   end
 

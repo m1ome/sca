@@ -1,0 +1,6 @@
+#!/bin/sh
+# Migrate without starting the endpoints: a deploy step of its own.
+set -eu
+
+cd -P -- "$(dirname -- "$0")"
+exec ./sca eval Sca.Release.migrate

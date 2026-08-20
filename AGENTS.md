@@ -2,17 +2,162 @@ This is a web application written using the Phoenix web framework.
 
 ## SCA umbrella
 
-- `apps/sca` — домен: `Sca.Repo`, контексты, Oban-воркеры. Только это приложение
-  ходит в базу.
-- `apps/sca_api` — JSON API для мерчантов (dev: 4001), `apps/sca_web` — кабинет
-  мерчанта (4000), `apps/sca_admin` — внутренняя админка (4002). Веб-приложения
-  вызывают домен, а не `Sca.Repo` напрямую.
-- Postgres поднимается через `docker compose up -d db` на `localhost:55433`.
-- Схемы объявляются как `use Sca.Schema, public_id: "TN"` — UUID-ключ плюс
-  человеко-читаемый `public_id` (`TN-1`, `CON-42`), который создаёт миграция
-  через `Sca.Repo.Migration.add_public_id/2`. Разбор — `Sca.PublicId`.
-- Фабрики для тестов — `Sca.Factory` (ExMachina). Джобы в тестах не
-  выполняются: `Oban` в режиме `testing: :manual`.
+- `apps/sca` is the domain, and the only application that talks to the database.
+  Three layers inside it: `Sca.Models.*` (schemas, changesets, the entity's own
+  policy), `Sca.Repos.*Repo` (queries only, answering
+  `{:ok, _} | {:error, :not_found}`), `Sca.Actions.*` (one module per aggregate —
+  `Tenant`, `Binding`, `Request` — where transactions and side effects live).
+  Plus `Sca.Workers.*`, `Sca.Webhooks` and `Sca.Push`.
+- New business logic goes into its aggregate's action module, not into a repo and
+  not into a model. An `if` appearing in a repo is a reason to write an action.
+- There is no authentication in the domain: password checks and bearer parsing
+  live in `sca_api` / `sca_web` / `sca_admin`. Do not move them back.
+- Inside actions, models are reached through `alias Sca.Models` (`Models.Binding`)
+  — a direct alias would collide with the action module's own name.
+- A repo starts with `use Sca.Repo.Base, model: Sca.Models.X`: CRUD,
+  `get_by_public_id/1` and the Flop `list/1` are already there. Add only what is
+  specific to that entity; overriding the base is fine (`UserRepo.update/2`).
+- In models: enum values as `~w(active suspended)a`, fields as
+  `@required_fields` / `@optional_fields` / `@all_fields`, casting from
+  `@all_fields`, `validate_required(@required_fields)`. What lists may filter and
+  sort by goes into `@derive {Flop.Schema, ...}` in the same file.
+- `apps/sca_api` is the JSON API (dev: 4001), `apps/sca_web` the merchant console
+  (4000), `apps/sca_admin` the internal one (4002). They call the domain, never
+  `Sca.Repo`.
+- Postgres comes up with `docker compose up -d db` on `localhost:55433`.
+- Everything read from the environment belongs in `config/runtime.exs`, written
+  once against the `endpoints` list: the three endpoints differ only in variable
+  names, so a fourth copied block is a reason to write a loop. Compile-time
+  settings (`cache_static_manifest`) go in `prod.exs`.
+- TLS is terminated in front of the application; the endpoints speak plain HTTP
+  and only their `:url` says `https`. No certificates in config, no `force_ssl`.
+- Production is the `sca` release built by the `Dockerfile`; migrations run as
+  their own step through `/app/bin/migrate` (`Sca.Release.migrate/0`). There is
+  no `mix` in the image, so anything that has to be runnable in production lives
+  in `Sca.Release`.
+- Schemas are declared with `use Sca.Schema, public_id: "TNT"`: a UUID key plus a
+  human-readable `public_id` (`TNT-1`, `BIN-42`) created by the migration through
+  `Sca.Repo.Migration.add_public_id/2`. Parsing is `Sca.PublicId`.
+- Test factories are `Sca.Factory` (ExMachina); a device with a real key pair is
+  `Sca.Support.Device` (`Device.bind/2`, `Device.decide/3`). Jobs do not run in
+  tests (`Oban` in `testing: :manual`), and the webhook and push clients are
+  `Sca.Webhooks.ClientMock` and `Sca.Push.ClientMock` (Mox).
+- `Sca.Crypto` is a cross-language contract with the mobile client. Changing the
+  canonical form, the signing strings or the key format breaks signatures in the
+  field: change it together with the client, and with the vector in
+  `test/sca/crypto_test.exs`.
+- Webhooks are `Sca.Webhooks`, not an action: `Webhooks.queue(event, entity)`
+  inside the action's transaction, or `emit/2` when there is none. The action
+  passes an event and an entity; tenant, payload, envelope and delivery are the
+  module's business. A new event goes into `@events` and `Sca.Webhooks.Payload`.
+- Push is `Sca.Push`, built the same way: `Push.queue(request, binding)` inside
+  the transaction, the message shape in `Sca.Push.Message`, sending in
+  `Sca.Workers.PushWorker`. A notification carries `title` and `description` and
+  nothing else — it passes through Google and Apple onto a lock screen. The
+  `data` keys (`c`, `a`, `x`) are a contract with the mobile client.
+- Actions log explicitly, in the branch where the decision was made:
+  `Logger.info("[actions.<aggregate>.<operation>] <public_id> …")` on success,
+  `Logger.warning` on a refusal, `Logger.error` when giving up. No wrappers like
+  `log_ok`: a log line should be visible in the code, not hidden behind a pipe.
+- A log message is **one interpolated string** — no `<>`, no line breaks. If it
+  does not fit, it carries too much: the details are in the database row, the log
+  needs identifiers and an outcome.
+- Every `{:error, _}` leaving an action is logged where it is returned; a silent
+  refusal cannot be debugged in production. Format the reason with `reason/1`
+  from `Sca.Actions.Helpers`.
+- Logs carry identifiers and statuses, never passwords, tokens, signatures or the
+  contents of a card.
+- HTTP requests are logged by Logster (one line, logfmt in dev, JSON in prod);
+  Phoenix's own logger is off. A new parameter carrying a secret goes into
+  `filter_parameters` in `config/config.exs` (substring match). A noisy endpoint
+  is quieted with a `Logster.ChangeConfig` plug in its own controller, not by
+  editing the global config.
+- Do not match a transaction result rigidly (`{:ok, x} = Repo.transact(...)`):
+  take it apart with `case` and log it. A `MatchError` in production is worse
+  than a refusal.
+- Next to a log line, a counter: `Sca.Telemetry.emit([:request, :decided], …)`.
+  Logs answer "what happened to REQ-4711", telemetry answers "how many signatures
+  fail today". New events are described in the table in `Sca.Telemetry`.
+- The boundary layers (`sca_api`, `sca_web`, `sca_admin`) reach entities **only**
+  through `Sca.Scope` (`fetch_binding/2`, `fetch_request/2`, …), never through
+  repos: another tenant must get `:not_found`.
+- Anything shared by actions goes into `Sca.Actions.Helpers` (`stringify/1`,
+  `reason/1`), not into a third copy of a private function.
+- Time is `Timex`, not `DateTime`: `Timex.now/0`, `Timex.shift/2`,
+  `Timex.before?/2`, `Timex.after?/2`, `Timex.diff/3`, `Timex.format!/2`. Watch
+  out: `Timex.compare/2` returns `-1 | 0 | 1`, not `:lt | :eq | :gt`.
+- `mix typecheck` is dialyzer, and it must stay clean. Silence a warning only
+  with a targeted `@dialyzer {:no_opaque, fun: arity}` and a comment saying why,
+  never with a project-wide flag.
+- Do not hand-write cryptography or format parsing: encryption is `jose` (JWE),
+  signatures and curves `:crypto`, money `Decimal`, currencies `money`.
+
+## Web layer (`sca_web`, `sca_admin`)
+
+- The design system is the Enum8 handoff
+  (`~/Downloads/enum8-design-system-package`): Tailwind 4 utilities and Heroicons
+  outline. No daisyUI, no new CSS files, no private tokens — colours and sizes
+  come from `@theme` in `app.css`.
+- Primitives and the shell are shared, in `apps/sca_ui` (`ScaUi.Components`,
+  `ScaUi.Shell`). A new primitive goes there rather than into one console: two
+  copies of a design system drift apart quietly.
+- In admin lists the merchant's name links to its page, and lists that belong to
+  merchants have a filter by merchant.
+- A merchant's secrets (the signing key) are never shown in the admin console,
+  only the fact that they are configured.
+- A list row carries a title, a human description, a status, a time and `View` —
+  no decisions, and none of the signed params.
+- `status/1` is read-only: a pill must never look clickable.
+- Screens reach entities through `Sca.Scope`, not through repos.
+- Authentication is `ScaWeb.Auth`: the password check lives here, the domain
+  hands out a hash.
+
+## API (`sca_api`)
+
+- The device API is mounted twice: at `/api/sca/v1` and under `/t/:tenant`. The
+  QR hands the phone the tenant-scoped base URL, the client appends
+  `/api/sca/v1/...` to whatever it was given, and `ScaApi.TenantPath` refuses a
+  code or a session belonging to another merchant.
+- `/api/sca/v1` is a contract with a mobile client that is already installed.
+  Field names (`params`, `payload_hash`, `connection_id`),
+  status codes and the 401/403 distinction cannot change without changing it.
+- Response shapes are written by hand in `ScaApi.JSON`, never derived from
+  schemas: a new column must not leak outward on its own.
+- Both authentications are plugs (`ScaApi.DeviceAuth`, `ScaApi.MerchantAuth`) and
+  both put a `Sca.Scope` in the conn; controllers go through it.
+- An error goes out as `{"error": {"code", "message", "fields"}}`, the fields
+  from `Sca.Errors.to_map/1`.
+
+## Style: pipes, `with`, transactions
+
+- **A pipe** is for steps about one subject, passed as the first argument. One
+  `|> case do` at the end is fine; two in a row is a fork that wants a name.
+- **`with`** is a chain of steps that each return `{:ok, _} | {:error, _}`. The
+  `else` renames an error or logs a refusal — it is not for logic. A one-step
+  `with` is right when success needs work and the error passes through untouched;
+  if both branches need work, that is a `case`.
+- **A transaction is `Repo.transact/2` + `with`**, not `Ecto.Multi`: the steps
+  read top to bottom, and `{:error, _}` rolls back on its own — no
+  `Repo.rollback`. `Multi` is not used in actions.
+- Every check inside is a named predicate (`ensure_owner/2`, `ensure_pending/1`,
+  `ensure_enrollable/1`) returning `:ok | {:error, atom}`, not a `cond` branch.
+- **Careful with `with` as a replacement for `case`:** if the last clause does
+  not match, its value *is* the result. `with {:error, r} <- check() do … end`
+  returns `{:ok, jwk}` on success, and the junk travels on. Do not write that
+  inverted form: two outcomes are a `case`.
+- **Predicates** return `:ok | {:error, atom}` rather than `true/false`, so they
+  drop into a `with` without a wrapper.
+- Function bodies nest two levels deep at most (credo checks this); deeper means
+  a named private function.
+
+## Errors
+
+- A domain refusal that no field can fix is an atom:
+  `{:error, :not_yours | :already_decided | :expired | :invalid_signature}`.
+- Bad input is `{:error, %Ecto.Changeset{}}`, unfolded for the caller by
+  `Sca.Errors.to_map/1` (keys as the caller sent them, card param names
+  included).
+- Never mix the two for the same cause.
 
 ## Project guidelines
 

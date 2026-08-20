@@ -1,12 +1,4 @@
-# This file is responsible for configuring your umbrella
-# and **all applications** and their dependencies with the
-# help of the Config module.
-#
-# Note that all applications in your umbrella share the
-# same configuration and dependencies, which is why they
-# all use the same configuration file. If you want different
-# configurations or dependencies per app, it is best to
-# move said applications out of the umbrella.
+# Shared by every application in the umbrella.
 import Config
 
 config :sca_admin,
@@ -60,27 +52,32 @@ config :sca_api, ScaApi.Endpoint,
   pubsub_server: Sca.PubSub,
   live_view: [signing_salt: "viAMYgJ5"]
 
-# Configure Mix tasks and generators
 config :sca,
   ecto_repos: [Sca.Repo],
   generators: [binary_id: true, timestamp_type: :utc_datetime_usec]
 
-# Background jobs. Oban runs inside the domain app, next to the Repo.
 config :sca, Oban,
   repo: Sca.Repo,
-  queues: [default: 10],
+  queues: [default: 10, webhooks: 20, push: 20],
   plugins: [
     Oban.Plugins.Pruner,
-    {Oban.Plugins.Cron, crontab: []}
+    {Oban.Plugins.Cron, crontab: [{"* * * * *", Sca.Workers.RequestExpiryWorker}]}
   ]
 
-# Configure the mailer
-#
-# By default it uses the "Local" adapter which stores the emails
-# locally. You can see the emails in your browser, at "/dev/mailbox".
-#
-# For production it's recommended to configure a different adapter
-# at the `config/runtime.exs`.
+# Inert without SENTRY_DSN: no network, no buffering.
+config :sentry,
+  environment_name: config_env(),
+  enable_source_code_context: true,
+  root_source_code_paths: [File.cwd!()]
+
+config :flop, repo: Sca.Repo, default_limit: 20
+
+config :sca, :push_client, Sca.Push.Client.Fcm
+
+# Swapping the HTTP client is a matter of pointing this elsewhere.
+config :sca, :webhook_client, Sca.Webhooks.Client.Req
+
+# Local adapter: the mailbox lives at "/dev/mailbox".
 config :sca, Sca.Mailer, adapter: Swoosh.Adapters.Local
 
 config :sca_web,
@@ -119,14 +116,20 @@ config :tailwind,
     cd: Path.expand("../apps/sca_web", __DIR__)
   ]
 
-# Configure Elixir's Logger
+# One line per request (Logster) instead of Phoenix's four.
+config :phoenix, :logger, false
+
+config :logster,
+  formatter: :logfmt,
+  # Matched as substrings, so `token` covers access_, enroll_ and push_token.
+  # `public_key` is not secret, just 90 useless characters of base64.
+  filter_parameters: ~w(password secret token signature certificate public_key)
+
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
-# Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Import environment specific config. This must remain at the bottom
-# of this file so it overrides the configuration defined above.
+# Must stay at the bottom: it overrides everything above.
 import_config "#{config_env()}.exs"

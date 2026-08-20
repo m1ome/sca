@@ -19,12 +19,10 @@ defmodule ScaWeb.ConnCase do
 
   using do
     quote do
-      # The default endpoint for testing
       @endpoint ScaWeb.Endpoint
 
       use ScaWeb, :verified_routes
 
-      # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
       import ScaWeb.ConnCase

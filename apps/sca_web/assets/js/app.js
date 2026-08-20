@@ -81,3 +81,9 @@ if (process.env.NODE_ENV === "development") {
   })
 }
 
+
+// Copy the text of whatever element dispatched it — used by the activation code
+// modal, where the code is shown exactly once.
+window.addEventListener("sca:copy", (event) => {
+  navigator.clipboard.writeText(event.target.textContent.trim())
+})

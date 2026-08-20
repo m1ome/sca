@@ -1,0 +1,49 @@
+<Layouts.public flash={@flash}>
+  <div class="mb-8 flex flex-col items-center text-center">
+    <Layouts.logo class="h-10 w-10" />
+    <h1 class="mt-4 text-xl font-semibold tracking-tight text-ink">Sign in to Enum8</h1>
+    <p class="mt-2 text-sm text-muted">Approvals, bindings and settings for your merchant.</p>
+  </div>
+
+  <.surface class="p-6">
+    <.form :let={_f} for={%{}} action={~p"/log-in"} method="post" class="space-y-4">
+      <p
+        :if={@error}
+        class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700"
+      >
+        {@error}
+      </p>
+
+      <.input
+        name="session[tenant]"
+        value={@form_values["tenant"]}
+        label="Merchant ID"
+        placeholder="TNT-1"
+        help="The identifier on your merchant profile."
+        autocomplete="organization"
+        required
+      />
+
+      <.input
+        type="email"
+        name="session[email]"
+        value={@form_values["email"]}
+        label="Email"
+        placeholder="you@merchant.com"
+        autocomplete="username"
+        required
+      />
+
+      <.input
+        type="password"
+        name="session[password]"
+        value=""
+        label="Password"
+        autocomplete="current-password"
+        required
+      />
+
+      <.button type="submit" class="w-full">Sign in</.button>
+    </.form>
+  </.surface>
+</Layouts.public>

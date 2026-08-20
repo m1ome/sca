@@ -38,8 +38,16 @@ config :sca_web, ScaWeb.Endpoint,
 # Jobs are not executed in tests; assert on them with Oban.Testing instead.
 config :sca, Oban, testing: :manual
 
+# Neither webhooks nor push ever leave the test suite.
+config :sca, :webhook_client, Sca.Webhooks.ClientMock
+config :sca, :push_client, Sca.Push.ClientMock
+
 # Print only warnings and errors during test
 config :logger, level: :warning
+
+# Half the API tests assert on 401/403/404; at warning they drown the output.
+# Real 5xx still logs at :error.
+config :logster, status_4xx_level: :info
 
 # In test we don't send emails
 config :sca, Sca.Mailer, adapter: Swoosh.Adapters.Test

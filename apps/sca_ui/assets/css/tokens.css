@@ -1,0 +1,46 @@
+/* Enum8 design tokens. Imported by each console's stylesheet; nothing else
+   belongs here — component styling is Tailwind utilities at the call site. */
+
+@theme {
+  --color-brand: #155cf2;
+  --color-brand-strong: #104bd0;
+  --color-brand-soft: #eef4ff;
+  --color-ink: #111a2e;
+  --color-muted: #748095;
+  --color-line: #e3e8ef;
+  --color-canvas: #f7f8fa;
+  --shadow-surface: 0 1px 2px rgb(15 23 42 / 0.03);
+
+  --radius-control: 8px;
+  --radius-surface: 12px;
+  --radius-modal: 16px;
+
+  --spacing-control: 40px;
+  --spacing-header: 64px;
+  --spacing-sidebar: 228px;
+  --spacing-row: 68px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    min-width: 320px;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  button,
+  select {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}

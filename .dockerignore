@@ -1,0 +1,21 @@
+# Nothing here needs to reach the daemon or a layer.
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+_build
+deps
+.fetch
+
+# Built inside the image; someone else's output only confuses the cache.
+apps/*/priv/static/assets
+apps/*/priv/static/cache_manifest.json
+apps/*/assets/node_modules
+
+# Hundreds of megabytes of dialyzer PLTs.
+priv/plts
+
+*.ez
+erl_crash.dump

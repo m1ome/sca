@@ -1,6 +1,8 @@
 defmodule ScaAdmin.Router do
   use ScaAdmin, :router
 
+  import ScaAdmin.Auth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,6 +10,7 @@ defmodule ScaAdmin.Router do
     plug :put_root_layout, html: {ScaAdmin.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_admin
   end
 
   pipeline :api do
@@ -15,19 +18,32 @@ defmodule ScaAdmin.Router do
   end
 
   scope "/", ScaAdmin do
-    pipe_through :browser
+    pipe_through [:browser, :redirect_if_authenticated]
 
-    get "/", PageController, :home
+    get "/log-in", SessionController, :new
+    post "/log-in", SessionController, :create
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", ScaAdmin do
-  #   pipe_through :api
-  # end
+  scope "/", ScaAdmin do
+    pipe_through [:browser, :require_authenticated_admin]
 
-  # Oban queues and jobs. No authentication yet, so it stays behind dev_routes
-  # together with the LiveDashboard — move both into an authenticated scope
-  # once admin login exists.
+    delete "/log-out", SessionController, :delete
+
+    live_session :console,
+      on_mount: {ScaAdmin.Auth, :ensure_authenticated},
+      layout: false do
+      live "/", OverviewLive
+      live "/tenants", TenantsLive
+      live "/tenants/:id", TenantLive
+      live "/bindings", BindingsLive
+      live "/approvals", ApprovalsLive
+      live "/team", TeamLive
+      live "/team/:id", TeamMemberLive
+      live "/settings", SettingsLive
+    end
+  end
+
+  # Unauthenticated, hence dev only — as is the LiveDashboard below.
   if Application.compile_env(:sca_admin, :dev_routes) do
     import Oban.Web.Router
 
@@ -38,13 +54,7 @@ defmodule ScaAdmin.Router do
     end
   end
 
-  # Enable LiveDashboard in development
   if Application.compile_env(:sca_admin, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do

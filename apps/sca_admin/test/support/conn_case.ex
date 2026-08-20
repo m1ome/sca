@@ -19,12 +19,10 @@ defmodule ScaAdmin.ConnCase do
 
   using do
     quote do
-      # The default endpoint for testing
       @endpoint ScaAdmin.Endpoint
 
       use ScaAdmin, :verified_routes
 
-      # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
       import ScaAdmin.ConnCase
