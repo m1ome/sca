@@ -122,6 +122,10 @@ This is a web application written using the Phoenix web framework.
   QR hands the phone the tenant-scoped base URL, the client appends
   `/api/sca/v1/...` to whatever it was given, and `ScaApi.TenantPath` refuses a
   code or a session belonging to another merchant.
+- What goes into the QR is `Sca.Enrollment` — a contract with the installed
+  client, like `Sca.Crypto`. The base URL is not the domain's business: each
+  entry point passes in the address the world reaches *it* at, and both the
+  console and `POST /bindings` answer with the same string.
 - `/api/sca/v1` is a contract with a mobile client that is already installed.
   Field names (`params`, `payload_hash`, `connection_id`),
   status codes and the 401/403 distinction cannot change without changing it.

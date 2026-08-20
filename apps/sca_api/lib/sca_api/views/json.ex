@@ -14,8 +14,10 @@ defmodule ScaApi.JSON do
   a console, not for code holding a reference.
   """
 
+  alias Sca.Enrollment
   alias Sca.Models.Binding
   alias Sca.Models.Request
+  alias Sca.Models.Tenant
 
   @doc "An authorization, as the mobile client reads it."
   def authorization(%Request{} = request) do
@@ -72,18 +74,21 @@ defmodule ScaApi.JSON do
   def binding(%Binding{} = binding), do: binding_summary(binding)
 
   @doc """
-  A device plus the code that activates it.
+  A device plus everything needed to activate it.
 
-  The activation code is in this response and nowhere else — the QR the phone
-  scans is built from it.
+  The activation code is in this response and nowhere else. `qr_payload` is the
+  exact string to encode into a QR, so a merchant renders the picture and keeps
+  no address of ours in their own configuration.
   """
-  def enrollment(%Binding{} = binding) do
+  def enrollment(%Binding{} = binding, %Tenant{} = tenant, base_url) do
     binding
     |> binding_summary()
     |> Map.put(:activation, %{
       code: binding.enroll_token,
       nonce: binding.enroll_nonce,
-      expires_at: timestamp(binding.enroll_expires_at)
+      expires_at: timestamp(binding.enroll_expires_at),
+      connect_url: Enrollment.connect_url(base_url, tenant),
+      qr_payload: Enrollment.payload(base_url, tenant, binding)
     })
   end
 

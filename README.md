@@ -48,7 +48,9 @@ are asserted with `Oban.Testing` rather than executed.
 Both live in `apps/sca_api`; the routes are in `ScaApi.Router`.
 
 - `/api/sca/v1` — the device API, also served under `/t/:tenant` (which is what
-  the enrollment QR points a phone at, so the merchant is in every device call).
+  the enrollment QR points a phone at, so the merchant is in every device call;
+  `POST /bindings` answers with that address and the QR payload itself, so a
+  merchant stores no address of ours).
   Its shape is fixed by the mobile client already in people's hands. Bearer
   token per binding, issued at enrollment.
 - `/api/merchant/v1` — the merchant API: bindings and approvals. API key

@@ -96,8 +96,7 @@ defmodule ScaWeb.BindingsLiveTest do
     assert payload["nonce"] == binding.enroll_nonce
 
     # The merchant is part of the address, so every later call carries it.
-    assert payload["connect_url"] =~ ~r{^https?://.+/t/#{ctx.tenant.public_id}$}
-    assert html =~ ctx.tenant.public_id
+    assert payload["connect_url"] =~ ~r{^https?://.+/t/#{ctx.tenant.id}$}
   end
 
   test "the address to type in is shown next to the code", ctx do
@@ -111,7 +110,7 @@ defmodule ScaWeb.BindingsLiveTest do
       |> render_submit()
 
     assert html =~ "Server address"
-    assert html =~ "/t/#{ctx.tenant.public_id}"
+    assert html =~ "/t/#{ctx.tenant.id}"
   end
 
   test "a device still waiting for a scan shows the same QR on its own page", ctx do

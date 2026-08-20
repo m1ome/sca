@@ -107,6 +107,25 @@ defmodule ScaApi.MerchantApiTest do
     end
   end
 
+  test "an enrollment carries everything needed to draw the QR", ctx do
+    conn = post(ctx.conn, ~p"/api/merchant/v1/bindings", %{external_id: "customer-1"})
+
+    assert %{"activation" => activation} = json_response(conn, 201)
+    assert %{"code" => code, "nonce" => nonce, "connect_url" => url} = activation
+
+    # The merchant keeps no address of ours in their own configuration.
+    assert url =~ ~r{^https?://.+/t/#{ctx.tenant.id}$}
+
+    # And nothing has to be assembled on their side either: this string is what
+    # goes into the QR, and it is what the mobile client parses.
+    payload = Jason.decode!(activation["qr_payload"])
+
+    assert payload["type"] == "sca-proto-enroll"
+    assert payload["connect_url"] == url
+    assert payload["connect_token"] == code
+    assert payload["nonce"] == nonce
+  end
+
   test "a webhook names the same thing the API just answered with", ctx do
     {:ok, tenant} =
       Actions.Tenant.update_settings(ctx.tenant, %{webhook_url: "https://merchant.example.com/x"})

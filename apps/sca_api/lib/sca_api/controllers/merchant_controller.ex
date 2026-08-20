@@ -37,7 +37,7 @@ defmodule ScaApi.MerchantController do
     case existing(tenant, key, &BindingRepo.get_by_idempotency_key/2) do
       # Not 201, and the same activation code: a fresh one would invalidate the
       # QR the merchant may already be showing.
-      {:ok, binding} -> json(conn, JSON.enrollment(binding))
+      {:ok, binding} -> json(conn, enrollment(conn, binding))
       :none -> enroll(conn, tenant, key, params)
     end
   end
@@ -47,13 +47,13 @@ defmodule ScaApi.MerchantController do
 
     case Actions.Binding.enroll(tenant, attrs) do
       {:ok, binding} ->
-        conn |> put_status(:created) |> json(JSON.enrollment(binding))
+        conn |> put_status(:created) |> json(enrollment(conn, binding))
 
       {:error, changeset} ->
         # Two calls with the same key at the same moment: one of them created
         # the row, and this is the other one.
         case existing(tenant, key, &BindingRepo.get_by_idempotency_key/2) do
-          {:ok, binding} -> json(conn, JSON.enrollment(binding))
+          {:ok, binding} -> json(conn, enrollment(conn, binding))
           :none -> invalid(conn, changeset)
         end
     end
@@ -197,6 +197,12 @@ defmodule ScaApi.MerchantController do
 
   defp page(params) do
     %{"page" => params["page"] || 1, "page_size" => min(params["page_size"] || @page_size, 100)}
+  end
+
+  # The phone is told where to come back to, so a merchant keeps no address of
+  # ours in their configuration. This endpoint is the one that knows it.
+  defp enrollment(conn, binding) do
+    JSON.enrollment(binding, conn.assigns.current_tenant, ScaApi.Endpoint.url())
   end
 
   defp idempotency_key(conn) do
