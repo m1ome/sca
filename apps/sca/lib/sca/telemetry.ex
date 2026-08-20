@@ -13,6 +13,7 @@ defmodule Sca.Telemetry do
   | `[:sca, :binding, :revoked]` | `count` | `reason`, `tenant_id` |
   | `[:sca, :webhook, :queued]` | `count` | `event`, `tenant_id` |
   | `[:sca, :webhook, :attempt]` | `duration_ms`, `attempt` | `event`, `status`, `tenant_id` |
+  | `[:sca, :webhook, :test]` | `count` | `event`, `tenant_id` |
 
   `tenant_id` is a tag, not a metric dimension: a time series per tenant per
   event is a cardinality problem at a thousand merchants.
@@ -38,6 +39,7 @@ defmodule Sca.Telemetry do
       counter("sca.binding.bound.count"),
       counter("sca.binding.revoked.count", tags: [:reason]),
       counter("sca.webhook.queued.count", tags: [:event]),
+      counter("sca.webhook.test.count", tags: [:event]),
       counter("sca.webhook.attempt.count", tags: [:status]),
       summary("sca.webhook.attempt.duration_ms", unit: :millisecond, tags: [:status])
     ]

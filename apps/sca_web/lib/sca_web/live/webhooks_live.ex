@@ -4,7 +4,8 @@ defmodule ScaWeb.WebhooksLive do
 
   This is the screen someone opens when a decision did not reach their system:
   it answers what we sent, when, how many times we tried, and what their server
-  said — including the body of their own error.
+  said — including the body of their own error. Test events sent from Settings
+  land here too, marked as such.
   """
 
   use ScaWeb, :live_view
@@ -117,7 +118,9 @@ defmodule ScaWeb.WebhooksLive do
         <.table id="deliveries" rows={@streams.deliveries} stream>
           <:col :let={delivery} label="Event">
             <p class="truncate font-medium">{delivery.event}</p>
-            <p class="truncate text-xs text-muted">{delivery.public_id}</p>
+            <p class="truncate text-xs text-muted">
+              {delivery.public_id}<span :if={delivery.test}> · test event</span>
+            </p>
           </:col>
           <:col :let={delivery} label="Answer" width="w-40" hide_below="sm">
             <span class="text-muted">{response(delivery)}</span>
@@ -183,6 +186,9 @@ defmodule ScaWeb.WebhooksLive do
       >
         <dl>
           <.field label="State"><.status value={@selected.status} /></.field>
+          <.field :if={@selected.test} label="Kind">
+            Test event, sent from Settings against a sample payload
+          </.field>
           <.field label="Endpoint">
             <span class="break-all font-mono text-xs">{@selected.url}</span>
           </.field>

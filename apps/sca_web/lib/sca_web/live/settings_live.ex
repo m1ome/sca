@@ -6,6 +6,10 @@ defmodule ScaWeb.SettingsLive do
   plus the deadline every approval inherits, because it is the one setting that
   changes what the phone sees. Recent deliveries sit underneath: the answer to
   "did you actually call us" belongs next to the URL it was called on.
+
+  The test event is here for the same reason. Someone wiring a receiver up needs
+  to know their endpoint answers, their signature check passes and their parser
+  survives the payload — before a real customer waits on it.
   """
 
   use ScaWeb, :live_view
@@ -14,8 +18,10 @@ defmodule ScaWeb.SettingsLive do
   alias Sca.Repos.ApiTokenRepo
   alias Sca.Repos.WebhookDeliveryRepo
   alias Sca.Scope
+  alias Sca.Webhooks
 
   @recent_deliveries 10
+  @default_test_event "request.confirmed"
 
   @impl true
   def mount(_params, _session, socket) do
@@ -23,6 +29,13 @@ defmodule ScaWeb.SettingsLive do
      socket
      |> assign(page_title: "Settings", revealed: false, confirming_rotation: false)
      |> assign(issued: nil, revoking: nil)
+     |> assign(
+       testing: false,
+       sending_test: false,
+       test_event: @default_test_event,
+       test_event_options: event_options(),
+       test_result: nil
+     )
      |> assign_settings(socket.assigns.current_tenant)}
   end
 
@@ -78,6 +91,28 @@ defmodule ScaWeb.SettingsLive do
     end
   end
 
+  def handle_event("open-test", _params, socket) do
+    {:noreply, assign(socket, testing: true, test_result: nil)}
+  end
+
+  def handle_event("close-test", _params, socket) do
+    {:noreply, assign(socket, testing: false, test_result: nil)}
+  end
+
+  def handle_event("choose-test-event", %{"event" => event}, socket) do
+    {:noreply, assign(socket, test_event: event, test_result: nil)}
+  end
+
+  def handle_event("send-test", _params, socket) do
+    tenant = socket.assigns.current_tenant
+    event = socket.assigns.test_event
+
+    {:noreply,
+     socket
+     |> assign(sending_test: true, test_result: nil)
+     |> start_async(:test_webhook, fn -> Webhooks.send_test(tenant, event) end)}
+  end
+
   def handle_event("reveal", _params, socket), do: {:noreply, assign(socket, revealed: true)}
   def handle_event("hide", _params, socket), do: {:noreply, assign(socket, revealed: false)}
 
@@ -107,6 +142,28 @@ defmodule ScaWeb.SettingsLive do
   end
 
   @impl true
+  def handle_async(:test_webhook, {:ok, {:ok, delivery}}, socket) do
+    {:noreply,
+     socket
+     |> assign(sending_test: false, test_result: delivery)
+     |> assign_settings(socket.assigns.current_tenant)}
+  end
+
+  def handle_async(:test_webhook, {:ok, {:error, :no_endpoint}}, socket) do
+    {:noreply,
+     socket
+     |> assign(sending_test: false)
+     |> put_flash(:error, "Save an endpoint URL first, then send the test.")}
+  end
+
+  def handle_async(:test_webhook, _result, socket) do
+    {:noreply,
+     socket
+     |> assign(sending_test: false)
+     |> put_flash(:error, "The test event could not be sent.")}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app
@@ -128,7 +185,11 @@ defmodule ScaWeb.SettingsLive do
               <.list_header
                 title="Webhook"
                 description="Where decisions are delivered, and how they are protected."
-              />
+              >
+                <:action>
+                  <.button variant="secondary" phx-click="open-test">Send test event</.button>
+                </:action>
+              </.list_header>
 
               <div class="space-y-4 px-5 py-5">
                 <.input
@@ -349,8 +410,74 @@ defmodule ScaWeb.SettingsLive do
           <.button phx-click="rotate">Rotate key</.button>
         </:footer>
       </.modal>
+      <.modal
+        :if={@testing}
+        id="test-webhook"
+        show
+        on_cancel={JS.push("close-test")}
+        title="Send a test event"
+        description="A made-up event, delivered exactly like a real one."
+      >
+        <form phx-change="choose-test-event">
+          <.input
+            type="select"
+            name="event"
+            value={@test_event}
+            label="Event"
+            options={@test_event_options}
+            help="Same envelope, same signature, same encryption — with a sample payload."
+          />
+        </form>
+
+        <p class="mt-3 text-xs text-muted">
+          It goes to
+          <span class="font-mono break-all">
+            {@current_tenant.settings.webhook_url || "no endpoint yet"}
+          </span>
+          once, with no retries, and carries <span class="font-mono">"test": true</span>
+          so your receiver can take it apart without acting on it.
+        </p>
+
+        <div
+          :if={@test_result}
+          class="mt-4 rounded-xl border border-line bg-canvas px-4 py-3"
+        >
+          <dl>
+            <.field label="Result"><.status value={@test_result.status} /></.field>
+            <.field label="Answer">{response(@test_result)}</.field>
+            <.field :if={@test_result.duration_ms} label="Took">
+              {@test_result.duration_ms} ms
+            </.field>
+            <.field :if={@test_result.error} label="Error">
+              <span class="break-all text-xs text-rose-600">{@test_result.error}</span>
+            </.field>
+            <.field :if={@test_result.response_body not in [nil, ""]} label="Body">
+              <span class="break-all font-mono text-xs">{@test_result.response_body}</span>
+            </.field>
+            <.field label="Delivery">
+              <.link
+                navigate={~p"/webhooks"}
+                class="font-mono text-xs text-brand hover:text-brand-strong"
+              >
+                {@test_result.public_id}
+              </.link>
+            </.field>
+          </dl>
+        </div>
+
+        <:footer>
+          <.button variant="secondary" phx-click="close-test">Close</.button>
+          <.button phx-click="send-test" disabled={@sending_test}>
+            {if @sending_test, do: "Sending…", else: "Send test event"}
+          </.button>
+        </:footer>
+      </.modal>
     </Layouts.app>
     """
+  end
+
+  defp event_options do
+    Enum.map(Webhooks.events(), fn event -> {event, event} end)
   end
 
   defp assign_settings(socket, tenant) do

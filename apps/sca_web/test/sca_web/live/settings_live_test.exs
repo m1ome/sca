@@ -1,19 +1,32 @@
 defmodule ScaWeb.SettingsLiveTest do
   use ScaWeb.ConnCase, async: true
 
+  import Mox
   import Phoenix.LiveViewTest
 
   alias Sca.Repos.TenantRepo
+  alias Sca.Webhooks.ClientMock
   alias ScaWeb.Fixtures
 
   @certificate File.read!(
                  Path.expand("../../../../sca/test/support/fixtures/webhook_cert.pem", __DIR__)
                )
 
+  setup :verify_on_exit!
+
   setup %{conn: conn} do
     %{tenant: tenant, user: user} = Fixtures.merchant()
 
     %{conn: Fixtures.log_in(conn, user), tenant: tenant}
+  end
+
+  defp with_endpoint(tenant) do
+    {:ok, tenant} =
+      Sca.Actions.Tenant.update_settings(tenant, %{
+        webhook_url: "https://merchant.example.com/hooks/sca"
+      })
+
+    tenant
   end
 
   test "shows the webhook and hides the signing key until asked", ctx do
@@ -111,5 +124,59 @@ defmodule ScaWeb.SettingsLiveTest do
     assert html =~ "Recent deliveries"
     assert html =~ "binding.activated"
     assert html =~ "Not sent yet"
+  end
+
+  test "sends a test event and shows what the endpoint answered", ctx do
+    with_endpoint(ctx.tenant)
+
+    {:ok, live, _html} = live(ctx.conn, ~p"/settings")
+
+    # The delivery happens on a task of the LiveView's, not on the test process.
+    allow(ClientMock, self(), live.pid)
+
+    expect(ClientMock, :post, fn _url, body, _headers ->
+      assert Jason.decode!(body)["test"] == true
+
+      {:ok, %{status: 202, body: "queued"}}
+    end)
+
+    html = live |> element("button[phx-click=open-test]") |> render_click()
+    assert html =~ "Send a test event"
+
+    live |> element("button[phx-click=send-test]") |> render_click()
+    html = render_async(live)
+
+    assert html =~ "HTTP 202"
+    assert html =~ "queued"
+    assert html =~ "delivered"
+  end
+
+  test "a test event can be aimed at any of the events a merchant receives", ctx do
+    with_endpoint(ctx.tenant)
+
+    {:ok, live, _html} = live(ctx.conn, ~p"/settings")
+
+    allow(ClientMock, self(), live.pid)
+
+    expect(ClientMock, :post, fn _url, body, _headers ->
+      assert Jason.decode!(body)["event"] == "binding.revoked"
+
+      {:ok, %{status: 200, body: ""}}
+    end)
+
+    live |> element("button[phx-click=open-test]") |> render_click()
+    live |> form("#test-webhook form", %{"event" => "binding.revoked"}) |> render_change()
+    live |> element("button[phx-click=send-test]") |> render_click()
+
+    assert render_async(live) =~ "delivered"
+  end
+
+  test "a test without an endpoint says so instead of failing silently", ctx do
+    {:ok, live, _html} = live(ctx.conn, ~p"/settings")
+
+    live |> element("button[phx-click=open-test]") |> render_click()
+    live |> element("button[phx-click=send-test]") |> render_click()
+
+    assert render_async(live) =~ "Save an endpoint URL first"
   end
 end

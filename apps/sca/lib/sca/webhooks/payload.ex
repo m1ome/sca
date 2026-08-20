@@ -9,6 +9,9 @@ defmodule Sca.Webhooks.Payload do
   plus their own `external_id`.
 
   Secrets never appear: no access tokens, no enrollment tokens, no public key.
+
+  `sample/1` builds the same views out of made-up structs, for the test event a
+  merchant fires from the console while wiring their receiver up.
   """
 
   alias Sca.Models.Binding
@@ -30,6 +33,26 @@ defmodule Sca.Webhooks.Payload do
   end
 
   def build(%Binding{} = binding), do: %{"binding" => binding_view(binding)}
+
+  @doc """
+  What `event` looks like, with nothing behind it.
+
+  Built from structs and run through the same views as a real event, so a sample
+  cannot quietly drift from what a merchant will actually receive. The
+  identifiers are fresh uuids naming nothing: a receiver tells a test apart by
+  the `test` flag on the envelope, not by failing to look a payment up.
+  """
+  @spec sample(String.t()) :: map()
+  def sample("binding." <> _rest = event) do
+    %{"binding" => binding_view(sample_binding(event))}
+  end
+
+  def sample("request." <> _rest = event) do
+    %{
+      "request" => request_view(sample_request(event)),
+      "binding" => binding_view(sample_binding("binding.activated"))
+    }
+  end
 
   @doc "Which kind of thing an event is about."
   @spec resource_type(Request.t() | Binding.t()) :: :request | :binding
@@ -66,6 +89,50 @@ defmodule Sca.Webhooks.Payload do
       "attested" => binding.attested,
       "activated_at" => timestamp(binding.activated_at),
       "revoked_at" => timestamp(binding.revoked_at)
+    }
+  end
+
+  # `request.created` is the one event whose name is not its status.
+  defp sample_status("request.created"), do: :pending
+
+  defp sample_status("request." <> status), do: String.to_existing_atom(status)
+
+  defp sample_request(event) do
+    now = Timex.now()
+    status = sample_status(event)
+    decided? = status in [:confirmed, :declined]
+
+    %Request{
+      id: Ecto.UUID.generate(),
+      external_id: "sample-order-1",
+      type: :payment,
+      status: status,
+      title: "Sample payment",
+      description: "A test event from the SCA console. Nothing was charged.",
+      payload: %{"amount" => "10.00", "currency" => "EUR", "beneficiary" => "ACME Ltd"},
+      payload_hash: String.duplicate("0", 64),
+      inserted_at: now,
+      expires_at: Timex.shift(now, minutes: 5),
+      decided_at: if(decided?, do: now),
+      signature: if(decided?, do: "sample-signature"),
+      signed_payload: if(decided?, do: "sample-signed-payload"),
+      signature_algorithm: if(decided?, do: "ecdsa-p256")
+    }
+  end
+
+  defp sample_binding(event) do
+    now = Timex.now()
+    revoked? = event == "binding.revoked"
+
+    %Binding{
+      id: Ecto.UUID.generate(),
+      external_id: "sample-customer-1",
+      name: "Sample device",
+      status: if(revoked?, do: :revoked, else: :active),
+      push_platform: :ios,
+      attested: false,
+      activated_at: now,
+      revoked_at: if(revoked?, do: now)
     }
   end
 

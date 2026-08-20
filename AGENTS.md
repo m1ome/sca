@@ -50,7 +50,10 @@ This is a web application written using the Phoenix web framework.
 - Webhooks are `Sca.Webhooks`, not an action: `Webhooks.queue(event, entity)`
   inside the action's transaction, or `emit/2` when there is none. The action
   passes an event and an entity; tenant, payload, envelope and delivery are the
-  module's business. A new event goes into `@events` and `Sca.Webhooks.Payload`.
+  module's business. A new event goes into `@events` and `Sca.Webhooks.Payload`,
+  sample included — a merchant can fire any of them at their own endpoint from
+  Settings (`Webhooks.send_test/2`: one call on the caller's process, no Oban, no
+  retries, the real envelope with `"test": true` and `Payload.sample/1` inside).
 - Push is `Sca.Push`, built the same way: `Push.queue(request, binding)` inside
   the transaction, the message shape in `Sca.Push.Message`, sending in
   `Sca.Workers.PushWorker`. A notification carries `title` and `description` and

@@ -23,6 +23,7 @@ defmodule Sca.Webhooks do
   alias Sca.Repos.WebhookDeliveryRepo
   alias Sca.Telemetry
   alias Sca.Webhooks.Payload
+  alias Sca.Webhooks.Sender
   alias Sca.Workers.WebhookDeliveryWorker
 
   @events ~w(
@@ -89,6 +90,52 @@ defmodule Sca.Webhooks do
       else
         {:ok, delivery}
       end
+    end
+  end
+
+  @doc """
+  Sends one made-up event to the tenant's endpoint, right now.
+
+  The merchant is standing in front of the console waiting for the answer, so
+  this does not go through Oban: it posts on the caller's process, once, and
+  hands back the delivery with whatever came back written on it. Everything else
+  is a real delivery — the same envelope, the same signature, the same
+  encryption — because a test that takes a shortcut proves nothing.
+
+  A tenant with no endpoint is `{:error, :no_endpoint}`: here it *is* a refusal,
+  unlike an event nobody asked for.
+  """
+  @spec send_test(Models.Tenant.t(), String.t()) ::
+          {:ok, Models.WebhookDelivery.t()} | {:error, term()}
+  def send_test(%Models.Tenant{} = tenant, event) when event in @events do
+    case tenant.settings.webhook_url do
+      url when is_binary(url) and url != "" ->
+        deliver_test(tenant, event, url)
+
+      _missing ->
+        Logger.warning("[webhooks] test #{event} for #{tenant.public_id}: no endpoint configured")
+
+        {:error, :no_endpoint}
+    end
+  end
+
+  defp deliver_test(tenant, event, url) do
+    with {:ok, delivery} <-
+           WebhookDeliveryRepo.create(%{
+             tenant_id: tenant.id,
+             event: event,
+             url: url,
+             payload: Payload.sample(event),
+             encrypted: is_binary(tenant.settings.webhook_certificate),
+             test: true
+           }) do
+      Logger.info("[webhooks] testing #{delivery.public_id} #{event} for #{tenant.public_id}")
+      Telemetry.emit([:webhook, :test], %{count: 1}, %{event: event, tenant_id: tenant.id})
+
+      # One attempt of one: nobody wants a day of retries of a test.
+      Sender.deliver(delivery, 1, 1)
+
+      WebhookDeliveryRepo.get(delivery.id)
     end
   end
 

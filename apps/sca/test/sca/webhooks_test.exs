@@ -313,6 +313,86 @@ defmodule Sca.WebhooksTest do
     end
   end
 
+  describe "send_test/2" do
+    test "posts a sample event straight away and answers with what came back", ctx do
+      expect(ClientMock, :post, fn url, body, _headers ->
+        assert url == ctx.tenant.settings.webhook_url
+        decoded = Jason.decode!(body)
+
+        assert decoded["event"] == "request.confirmed"
+        assert decoded["test"] == true
+        assert decoded["data"]["request"]["status"] == "confirmed"
+        assert decoded["data"]["binding"]["id"]
+
+        {:ok, %{status: 200, body: "ok"}}
+      end)
+
+      queued = length(all_enqueued())
+
+      assert {:ok, delivery} = Webhooks.send_test(ctx.tenant, "request.confirmed")
+
+      assert delivery.test
+      assert delivery.status == :delivered
+      assert delivery.response_status == 200
+      assert delivery.response_body == "ok"
+      assert delivery.attempts == 1
+      # It describes nothing that exists, and it is one call rather than a day
+      # of retries: nobody wants a test coming back at three in the morning.
+      assert delivery.resource_id == nil
+      assert length(all_enqueued()) == queued
+    end
+
+    test "a refusal from the merchant is written down like any other", ctx do
+      expect(ClientMock, :post, fn _url, _body, _headers ->
+        {:ok, %{status: 401, body: "unauthorized"}}
+      end)
+
+      assert {:ok, delivery} = Webhooks.send_test(ctx.tenant, "binding.revoked")
+
+      assert delivery.status == :failed
+      assert delivery.response_status == 401
+      assert delivery.response_body == "unauthorized"
+      assert delivery.payload["binding"]["status"] == "revoked"
+    end
+
+    test "the sample carries the same keys a real event would", ctx do
+      expect(ClientMock, :post, fn _url, _body, _headers -> {:ok, %{status: 200, body: ""}} end)
+
+      {:ok, request} = Actions.Request.create(ctx.device.binding, payment_attrs())
+      real = hd(WebhookDeliveryRepo.list_for(request))
+
+      assert {:ok, sample} = Webhooks.send_test(ctx.tenant, "request.created")
+
+      assert Map.keys(sample.payload["request"]) == Map.keys(real.payload["request"])
+      assert Map.keys(sample.payload["binding"]) == Map.keys(real.payload["binding"])
+    end
+
+    test "a tenant with no endpoint is refused — here there is nothing to test" do
+      tenant = insert(:tenant, settings: build(:settings, webhook_url: nil))
+
+      assert Webhooks.send_test(tenant, "request.created") == {:error, :no_endpoint}
+      assert WebhookDeliveryRepo.list_by_tenant(tenant) == []
+    end
+
+    test "a test is encrypted when the tenant configured a certificate", ctx do
+      {:ok, tenant} =
+        Actions.Tenant.update_settings(ctx.tenant, %{webhook_certificate: certificate()})
+
+      expect(ClientMock, :post, fn _url, body, _headers ->
+        decoded = Jason.decode!(body)
+
+        assert decoded["test"] == true
+        assert decoded["data"] == nil
+        assert decoded["encrypted"]
+
+        {:ok, %{status: 200, body: ""}}
+      end)
+
+      assert {:ok, delivery} = Webhooks.send_test(tenant, "binding.activated")
+      assert delivery.encrypted
+    end
+  end
+
   describe "the envelope" do
     test "signs the body with the tenant's secret", %{tenant: tenant} do
       delivery = hd(WebhookDeliveryRepo.list_by_tenant(tenant))
@@ -343,6 +423,14 @@ defmodule Sca.WebhooksTest do
       assert :proplists.get_value("x-sca-signature", headers) == :undefined
       assert {"x-sca-event", "binding.activated"} in headers
       assert Jason.decode!(body)["event"] == "binding.activated"
+    end
+
+    test "a real event carries no test flag at all", %{tenant: tenant} do
+      delivery = tenant |> WebhookDeliveryRepo.list_by_tenant() |> hd() |> Repo.preload(:tenant)
+
+      {:ok, body, _headers} = Envelope.build(delivery, tenant)
+
+      refute Map.has_key?(Jason.decode!(body), "test")
     end
 
     test "routing metadata stays readable when the body is encrypted", %{tenant: tenant} do

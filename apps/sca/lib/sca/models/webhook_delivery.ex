@@ -15,7 +15,7 @@ defmodule Sca.Models.WebhookDelivery do
   @resource_types ~w(request binding)a
 
   @required_fields ~w(event url status tenant_id)a
-  @optional_fields ~w(resource_type resource_id payload encrypted)a
+  @optional_fields ~w(resource_type resource_id payload encrypted test)a
   @all_fields @required_fields ++ @optional_fields
 
   @attempt_fields ~w(status attempts response_status response_body error duration_ms
@@ -24,7 +24,7 @@ defmodule Sca.Models.WebhookDelivery do
   @type t() :: %__MODULE__{}
 
   @derive {Flop.Schema,
-           filterable: [:public_id, :event, :status, :tenant_id, :resource_id],
+           filterable: [:public_id, :event, :status, :tenant_id, :resource_id, :test],
            sortable: [:inserted_at, :attempts],
            default_order: %{order_by: [:inserted_at], order_directions: [:desc]}}
   schema "webhook_deliveries" do
@@ -37,6 +37,8 @@ defmodule Sca.Models.WebhookDelivery do
     field :url, :string
     field :payload, :map, default: %{}
     field :encrypted, :boolean, default: false
+    # Sent from the console against a sample payload, not caused by anything.
+    field :test, :boolean, default: false
 
     field :status, Ecto.Enum, values: @statuses, default: :pending
     field :attempts, :integer, default: 0

@@ -4,7 +4,9 @@ defmodule Sca.Webhooks.Envelope do
 
   Routing metadata — id, event, timestamp — stays in the clear so a receiver can
   dispatch without decrypting anything; the `data` object is what gets encrypted
-  when the tenant configured a certificate.
+  when the tenant configured a certificate. A delivery fired from the console
+  carries `"test": true` beside them, so a receiver can take it apart without
+  acting on it; a real event does not carry the key at all.
 
   Every request is signed:
 
@@ -33,17 +35,7 @@ defmodule Sca.Webhooks.Envelope do
         now \\ Timex.now()
       ) do
     with {:ok, data} <- encode_data(delivery, settings) do
-      body =
-        Jason.encode!(
-          Map.merge(
-            %{
-              "id" => delivery.id,
-              "event" => delivery.event,
-              "created_at" => Timex.format!(delivery.inserted_at, "{RFC3339z}")
-            },
-            data
-          )
-        )
+      body = Jason.encode!(envelope(delivery, data))
 
       {:ok, body, headers(delivery, settings, body, now)}
     end
@@ -60,6 +52,19 @@ defmodule Sca.Webhooks.Envelope do
 
     "t=#{unix},v1=#{digest}"
   end
+
+  defp envelope(%WebhookDelivery{} = delivery, data) do
+    routing = %{
+      "id" => delivery.id,
+      "event" => delivery.event,
+      "created_at" => Timex.format!(delivery.inserted_at, "{RFC3339z}")
+    }
+
+    routing |> Map.merge(data) |> mark_test(delivery)
+  end
+
+  defp mark_test(body, %WebhookDelivery{test: true}), do: Map.put(body, "test", true)
+  defp mark_test(body, %WebhookDelivery{}), do: body
 
   defp encode_data(%WebhookDelivery{payload: payload}, %TenantSettings{webhook_certificate: nil}) do
     {:ok, %{"data" => payload}}
