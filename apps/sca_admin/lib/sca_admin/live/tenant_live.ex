@@ -80,10 +80,10 @@ defmodule ScaAdmin.TenantLive do
         description="Merchant on this cluster."
       >
         <:action>
-          <.button :if={@tenant.status == :active} variant="secondary" phx-click="confirm-suspend">
+          <.button :if={@tenant.status == :active} variant="danger" phx-click="confirm-suspend">
             Suspend merchant
           </.button>
-          <.button :if={@tenant.status == :suspended} variant="secondary" phx-click="activate">
+          <.button :if={@tenant.status == :suspended} phx-click="activate">
             Resume merchant
           </.button>
         </:action>
@@ -156,7 +156,7 @@ defmodule ScaAdmin.TenantLive do
 
         <:footer>
           <.button variant="secondary" phx-click="cancel-suspend">Keep serving</.button>
-          <.button phx-click="suspend">Suspend merchant</.button>
+          <.button variant="danger" phx-click="suspend">Suspend merchant</.button>
         </:footer>
       </.modal>
     </Layouts.app>

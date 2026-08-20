@@ -22,7 +22,7 @@ defmodule ScaWeb.TeamMemberLive do
         {:ok,
          socket
          |> assign(page_title: display_name(member), role_options: options(@roles))
-         |> assign(member: member, password: nil)}
+         |> assign(member: member, password: nil, confirming: nil)}
 
       {:error, :not_found} ->
         {:ok,
@@ -43,6 +43,12 @@ defmodule ScaWeb.TeamMemberLive do
     end
   end
 
+  def handle_event("confirm", %{"action" => action}, socket) do
+    {:noreply, assign(socket, confirming: action)}
+  end
+
+  def handle_event("cancel", _params, socket), do: {:noreply, assign(socket, confirming: nil)}
+
   def handle_event("disable", _params, socket) do
     update_status(socket, &Actions.Tenant.disable_user/1, "Member disabled.")
   end
@@ -54,7 +60,7 @@ defmodule ScaWeb.TeamMemberLive do
   def handle_event("reset-password", _params, socket) do
     case Actions.Tenant.reset_user_password(socket.assigns.member) do
       {:ok, %{user: member, password: password}} ->
-        {:noreply, assign(socket, member: member, password: password)}
+        {:noreply, assign(socket, member: member, password: password, confirming: nil)}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not reset that password.")}
@@ -87,13 +93,14 @@ defmodule ScaWeb.TeamMemberLive do
         <:action>
           <.button
             :if={@member.status == :active}
-            variant="secondary"
-            phx-click="disable"
+            variant="danger"
+            phx-click="confirm"
+            phx-value-action="disable"
             disabled={yourself?(@member, @current_user)}
           >
             Disable access
           </.button>
-          <.button :if={@member.status == :disabled} variant="secondary" phx-click="enable">
+          <.button :if={@member.status == :disabled} phx-click="enable">
             Enable access
           </.button>
         </:action>
@@ -138,13 +145,49 @@ defmodule ScaWeb.TeamMemberLive do
               description="Issue a new one if they cannot sign in."
             />
             <div class="px-5 py-4">
-              <.button variant="secondary" phx-click="reset-password" class="w-full">
+              <.button phx-click="confirm" phx-value-action="reset-password" class="w-full">
                 Reset password
               </.button>
             </div>
           </.surface>
         </div>
       </div>
+
+      <.modal
+        :if={@confirming == "disable"}
+        id="confirm-disable"
+        show
+        on_cancel={JS.push("cancel")}
+        title="Disable this member?"
+        description="They stop being able to sign in."
+      >
+        <p class="text-sm leading-6 text-muted">
+          Nothing they did is removed, and you can let them back in at any time.
+        </p>
+
+        <:footer>
+          <.button variant="secondary" phx-click="cancel">Cancel</.button>
+          <.button variant="danger" phx-click="disable">Disable access</.button>
+        </:footer>
+      </.modal>
+
+      <.modal
+        :if={@confirming == "reset-password"}
+        id="confirm-reset"
+        show
+        on_cancel={JS.push("cancel")}
+        title="Reset this password?"
+        description="The one they have now stops working immediately."
+      >
+        <p class="text-sm leading-6 text-muted">
+          We will show the new password once. Hand it over yourself — nothing is emailed.
+        </p>
+
+        <:footer>
+          <.button variant="secondary" phx-click="cancel">Cancel</.button>
+          <.button phx-click="reset-password">Reset password</.button>
+        </:footer>
+      </.modal>
 
       <.modal
         :if={@password}
@@ -176,10 +219,11 @@ defmodule ScaWeb.TeamMemberLive do
   defp update_status(socket, action, message) do
     case action.(socket.assigns.member) do
       {:ok, member} ->
-        {:noreply, socket |> assign(member: member) |> put_flash(:info, message)}
+        {:noreply, socket |> assign(member: member, confirming: nil) |> put_flash(:info, message)}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change that member.")}
+        {:noreply,
+         socket |> assign(confirming: nil) |> put_flash(:error, "Could not change that member.")}
     end
   end
 

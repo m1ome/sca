@@ -16,7 +16,7 @@ defmodule Sca.Models.Tenant do
   @type t() :: %__MODULE__{}
 
   @derive {Flop.Schema,
-           filterable: [:public_id, :name, :status],
+           filterable: [:id, :public_id, :name, :status],
            sortable: [:inserted_at, :name],
            default_order: %{order_by: [:inserted_at], order_directions: [:desc]}}
 

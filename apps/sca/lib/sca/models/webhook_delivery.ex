@@ -24,7 +24,7 @@ defmodule Sca.Models.WebhookDelivery do
   @type t() :: %__MODULE__{}
 
   @derive {Flop.Schema,
-           filterable: [:public_id, :event, :status, :tenant_id, :resource_id, :test],
+           filterable: [:id, :public_id, :event, :status, :tenant_id, :resource_id, :test],
            sortable: [:inserted_at, :attempts],
            default_order: %{order_by: [:inserted_at], order_directions: [:desc]}}
   schema "webhook_deliveries" do

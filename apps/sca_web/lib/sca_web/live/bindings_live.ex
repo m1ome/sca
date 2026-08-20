@@ -12,6 +12,7 @@ defmodule ScaWeb.BindingsLive do
   alias Sca.Actions
   alias Sca.Models.Binding
   alias Sca.Repos.BindingRepo
+  alias Sca.Search
 
   @statuses Ecto.Enum.values(Binding, :status)
 
@@ -29,17 +30,17 @@ defmodule ScaWeb.BindingsLive do
 
     {:noreply,
      socket
-     |> assign(status: params["status"] || "", meta: meta)
+     |> assign(status: params["status"] || "", search: params["search"] || "", meta: meta)
      |> stream(:bindings, bindings, reset: true)}
   end
 
   @impl true
-  def handle_event("filter", %{"status" => status}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/bindings?#{query(status, 1)}")}
+  def handle_event("filter", params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/bindings?#{query(params, 1)}")}
   end
 
   def handle_event("page", %{"page" => page}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/bindings?#{query(socket.assigns.status, page)}")}
+    {:noreply, push_patch(socket, to: ~p"/bindings?#{query(socket.assigns, page)}")}
   end
 
   def handle_event("new", _params, socket) do
@@ -84,7 +85,7 @@ defmodule ScaWeb.BindingsLive do
         </:action>
       </.page_header>
 
-      <form phx-change="filter" class="mb-4 max-w-xs">
+      <form phx-change="filter" class="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
         <.input
           type="select"
           name="status"
@@ -92,6 +93,13 @@ defmodule ScaWeb.BindingsLive do
           label="State"
           prompt="All states"
           options={@status_options}
+        />
+        <.input
+          name="search"
+          value={@search}
+          label="Find"
+          placeholder="BIN-42 or a uuid"
+          help="An id from a log, a webhook or the API."
         />
       </form>
 
@@ -102,6 +110,9 @@ defmodule ScaWeb.BindingsLive do
           <:col :let={binding} label="Device">
             <p class="truncate font-medium">{device_name(binding)}</p>
             <p class="truncate text-xs text-muted">{binding.external_id}</p>
+          </:col>
+          <:col :let={binding} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{binding.public_id}</span>
           </:col>
           <:col :let={binding} label="Platform" width="w-28" hide_below="sm">
             <span class="text-muted">{platform(binding)}</span>
@@ -115,12 +126,7 @@ defmodule ScaWeb.BindingsLive do
             </span>
           </:col>
           <:action :let={binding}>
-            <.link
-              navigate={~p"/bindings/#{binding.public_id}"}
-              class="text-sm font-semibold text-brand hover:text-brand-strong"
-            >
-              View
-            </.link>
+            <.row_action navigate={~p"/bindings/#{binding.public_id}"} />
           </:action>
         </.table>
 
@@ -278,14 +284,18 @@ defmodule ScaWeb.BindingsLive do
   end
 
   defp flop(params) do
-    %{"page" => params["page"] || 1, "page_size" => 20, "filters" => filters(params["status"])}
+    %{"page" => params["page"] || 1, "page_size" => 20, "filters" => filters(params)}
   end
 
-  defp filters(status) when status in [nil, ""], do: []
-  defp filters(status), do: [%{"field" => "status", "op" => "==", "value" => status}]
+  defp filters(params) do
+    Enum.reject([status_filter(params["status"]), Search.filter(params["search"])], &is_nil/1)
+  end
 
-  defp query(status, page) do
-    %{"status" => status, "page" => page}
+  defp status_filter(status) when status in [nil, ""], do: nil
+  defp status_filter(status), do: %{"field" => "status", "op" => "==", "value" => status}
+
+  defp query(params, page) do
+    %{"status" => params["status"], "search" => params["search"], "page" => page}
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
   end
 end

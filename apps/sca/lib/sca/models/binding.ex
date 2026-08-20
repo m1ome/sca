@@ -35,7 +35,7 @@ defmodule Sca.Models.Binding do
   @type t() :: %__MODULE__{}
 
   @derive {Flop.Schema,
-           filterable: [:public_id, :external_id, :status, :tenant_id],
+           filterable: [:id, :public_id, :external_id, :status, :tenant_id],
            sortable: [:inserted_at, :last_seen_at],
            default_order: %{order_by: [:inserted_at], order_directions: [:desc]}}
   schema "bindings" do

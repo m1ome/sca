@@ -91,10 +91,15 @@ defmodule ScaWeb.TeamLiveTest do
       assert {:ok, %{role: :admin}} = UserRepo.get(ctx.member.id)
     end
 
-    test "disables and re-enables access", ctx do
+    test "disables and re-enables access, asking first", ctx do
       {:ok, live, _html} = live(ctx.conn, ~p"/team/#{ctx.member.public_id}")
 
+      # The button offers; the modal is what actually does it.
       html = live |> element("button", "Disable access") |> render_click()
+      assert html =~ "Disable this member?"
+      assert {:ok, %{status: :active}} = UserRepo.get(ctx.member.id)
+
+      html = live |> element("#confirm-disable button", "Disable access") |> render_click()
       assert html =~ "Member disabled"
       assert {:ok, %{status: :disabled}} = UserRepo.get(ctx.member.id)
 
@@ -103,10 +108,13 @@ defmodule ScaWeb.TeamLiveTest do
       assert {:ok, %{status: :active}} = UserRepo.get(ctx.member.id)
     end
 
-    test "resets a password and shows the new one once", ctx do
+    test "resets a password and shows the new one once, asking first", ctx do
       {:ok, live, _html} = live(ctx.conn, ~p"/team/#{ctx.member.public_id}")
 
       html = live |> element("button", "Reset password") |> render_click()
+      assert html =~ "Reset this password?"
+
+      html = live |> element("#confirm-reset button", "Reset password") |> render_click()
 
       assert html =~ "New password"
       assert html =~ "reset-password-value"

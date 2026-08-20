@@ -242,7 +242,7 @@ defmodule ScaWeb.SettingsLive do
               <:action :let={key}>
                 <.button
                   :if={is_nil(key.revoked_at)}
-                  variant="ghost"
+                  variant="danger"
                   phx-click="confirm-revoke-key"
                   phx-value-id={key.public_id}
                 >
@@ -331,7 +331,7 @@ defmodule ScaWeb.SettingsLive do
               </.button>
             </div>
 
-            <.button variant="secondary" phx-click="confirm-rotation" class="w-full">
+            <.button variant="danger" phx-click="confirm-rotation" class="w-full">
               Rotate key
             </.button>
           </div>
@@ -380,7 +380,9 @@ defmodule ScaWeb.SettingsLive do
 
         <:footer>
           <.button variant="secondary" phx-click="cancel-revoke-key">Keep key</.button>
-          <.button phx-click="revoke-key" phx-value-id={@revoking}>Revoke key</.button>
+          <.button variant="danger" phx-click="revoke-key" phx-value-id={@revoking}>
+            Revoke key
+          </.button>
         </:footer>
       </.modal>
 
@@ -400,7 +402,7 @@ defmodule ScaWeb.SettingsLive do
 
         <:footer>
           <.button variant="secondary" phx-click="cancel-rotation">Keep current key</.button>
-          <.button phx-click="rotate">Rotate key</.button>
+          <.button variant="danger" phx-click="rotate">Rotate key</.button>
         </:footer>
       </.modal>
       <.modal

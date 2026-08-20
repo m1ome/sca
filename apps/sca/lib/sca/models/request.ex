@@ -30,7 +30,7 @@ defmodule Sca.Models.Request do
   @type status() :: :pending | :confirmed | :declined | :expired | :cancelled
 
   @derive {Flop.Schema,
-           filterable: [:public_id, :external_id, :type, :status, :tenant_id, :binding_id],
+           filterable: [:id, :public_id, :external_id, :type, :status, :tenant_id, :binding_id],
            sortable: [:inserted_at, :expires_at],
            default_order: %{order_by: [:inserted_at], order_directions: [:desc]}}
 

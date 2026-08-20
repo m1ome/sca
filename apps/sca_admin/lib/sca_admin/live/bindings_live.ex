@@ -9,6 +9,7 @@ defmodule ScaAdmin.BindingsLive do
   alias Sca.Repo
   alias Sca.Repos.BindingRepo
   alias Sca.Repos.TenantRepo
+  alias Sca.Search
 
   @statuses Ecto.Enum.values(Binding, :status)
 
@@ -28,7 +29,12 @@ defmodule ScaAdmin.BindingsLive do
 
     {:noreply,
      socket
-     |> assign(status: params["status"] || "", tenant: params["tenant"] || "", meta: meta)
+     |> assign(
+       status: params["status"] || "",
+       tenant: params["tenant"] || "",
+       search: params["search"] || "",
+       meta: meta
+     )
      |> stream(:bindings, Repo.preload(bindings, :tenant), reset: true)}
   end
 
@@ -38,7 +44,11 @@ defmodule ScaAdmin.BindingsLive do
   end
 
   def handle_event("page", %{"page" => page}, socket) do
-    filters = %{"status" => socket.assigns.status, "tenant" => socket.assigns.tenant}
+    filters = %{
+      "status" => socket.assigns.status,
+      "tenant" => socket.assigns.tenant,
+      "search" => socket.assigns.search
+    }
 
     {:noreply, push_patch(socket, to: ~p"/bindings?#{query(filters, page)}")}
   end
@@ -53,7 +63,7 @@ defmodule ScaAdmin.BindingsLive do
         description="The phones that can confirm approvals, whoever they belong to."
       />
 
-      <form phx-change="filter" class="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
+      <form phx-change="filter" class="mb-4 grid gap-3 sm:grid-cols-3 lg:max-w-2xl">
         <.input
           type="select"
           name="tenant"
@@ -69,6 +79,13 @@ defmodule ScaAdmin.BindingsLive do
           label="State"
           prompt="All states"
           options={@status_options}
+        />
+        <.input
+          name="search"
+          value={@search}
+          label="Find"
+          placeholder="BIN-42 or a uuid"
+          help="An id from a log, a webhook or the API."
         />
       </form>
 
@@ -158,7 +175,11 @@ defmodule ScaAdmin.BindingsLive do
 
   defp flop(params) do
     filters =
-      [filter("status", params["status"]), filter("tenant_id", params["tenant"])]
+      [
+        filter("status", params["status"]),
+        filter("tenant_id", params["tenant"]),
+        Search.filter(params["search"])
+      ]
       |> Enum.reject(&is_nil/1)
 
     %{"page" => params["page"] || 1, "page_size" => 20, "filters" => filters}
@@ -168,7 +189,12 @@ defmodule ScaAdmin.BindingsLive do
   defp filter(field, value), do: %{"field" => field, "op" => "==", "value" => value}
 
   defp query(params, page) do
-    %{"status" => params["status"], "tenant" => params["tenant"], "page" => page}
+    %{
+      "status" => params["status"],
+      "tenant" => params["tenant"],
+      "search" => params["search"],
+      "page" => page
+    }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
   end
 

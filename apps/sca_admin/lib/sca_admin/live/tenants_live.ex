@@ -11,6 +11,7 @@ defmodule ScaAdmin.TenantsLive do
 
   alias Sca.Actions
   alias Sca.Repos.TenantRepo
+  alias Sca.Search
   alias ScaUi.PublicUrl
 
   @impl true
@@ -26,14 +27,21 @@ defmodule ScaAdmin.TenantsLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    {tenants, meta} = TenantRepo.list(%{"page" => params["page"] || 1, "page_size" => 20})
+    {tenants, meta} = TenantRepo.list(flop(params))
 
-    {:noreply, socket |> assign(meta: meta) |> stream(:tenants, tenants, reset: true)}
+    {:noreply,
+     socket
+     |> assign(meta: meta, search: params["search"] || "")
+     |> stream(:tenants, tenants, reset: true)}
   end
 
   @impl true
   def handle_event("page", %{"page" => page}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/tenants?page=#{page}")}
+    {:noreply, push_patch(socket, to: ~p"/tenants?#{query(socket.assigns.search, page)}")}
+  end
+
+  def handle_event("filter", %{"search" => search}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/tenants?#{query(search, 1)}")}
   end
 
   def handle_event("new", _params, socket) do
@@ -73,6 +81,16 @@ defmodule ScaAdmin.TenantsLive do
         </:action>
       </.page_header>
 
+      <form phx-change="filter" class="mb-4 max-w-xs">
+        <.input
+          name="search"
+          value={@search}
+          label="Find"
+          placeholder="TNT-1 or a uuid"
+          help="An id from a log, a webhook or the API."
+        />
+      </form>
+
       <.surface>
         <.list_header title="Merchants" description={"#{@meta.total_count} in total"} />
 
@@ -86,6 +104,9 @@ defmodule ScaAdmin.TenantsLive do
             </.link>
             <p class="truncate text-xs text-muted">{tenant.public_id}</p>
           </:col>
+          <:col :let={tenant} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{tenant.public_id}</span>
+          </:col>
           <:col :let={tenant} label="Webhook" width="w-44" hide_below="md">
             <span class="text-muted">{webhook(tenant)}</span>
           </:col>
@@ -98,12 +119,7 @@ defmodule ScaAdmin.TenantsLive do
             </span>
           </:col>
           <:action :let={tenant}>
-            <.link
-              navigate={~p"/tenants/#{tenant.public_id}"}
-              class="text-sm font-semibold text-brand hover:text-brand-strong"
-            >
-              View
-            </.link>
+            <.row_action navigate={~p"/tenants/#{tenant.public_id}"} />
           </:action>
         </.table>
 
@@ -198,6 +214,17 @@ defmodule ScaAdmin.TenantsLive do
       </.modal>
     </Layouts.app>
     """
+  end
+
+  defp flop(params) do
+    filters = [Search.filter(params["search"])] |> Enum.reject(&is_nil/1)
+
+    %{"page" => params["page"] || 1, "page_size" => 20, "filters" => filters}
+  end
+
+  defp query(search, page) do
+    %{"search" => search, "page" => page}
+    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
   end
 
   defp console_url, do: PublicUrl.of(:sca_web, ScaWeb.Endpoint)

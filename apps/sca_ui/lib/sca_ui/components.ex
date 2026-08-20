@@ -19,14 +19,17 @@ defmodule ScaUi.Components do
   @primary "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
   @secondary "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
   @ghost "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
+  @danger "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600/30"
   @control "h-10 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-brand focus:ring-4 focus:ring-brand/10"
 
   @doc """
   A button or a link that looks like one.
 
   One primary action per section; everything else is secondary or ghost.
+  `danger` is for the button that ends something — revoking, disabling,
+  suspending — and it belongs in the confirmation, not in the row that offers it.
   """
-  attr(:variant, :string, default: "primary", values: ~w(primary secondary ghost))
+  attr(:variant, :string, default: "primary", values: ~w(primary secondary ghost danger))
   attr(:type, :string, default: nil)
   attr(:navigate, :string, default: nil)
   attr(:href, :string, default: nil)
@@ -61,6 +64,7 @@ defmodule ScaUi.Components do
   defp style("primary"), do: @primary
   defp style("secondary"), do: @secondary
   defp style("ghost"), do: @ghost
+  defp style("danger"), do: @danger
 
   @doc """
   A labelled form control.
@@ -297,6 +301,29 @@ defmodule ScaUi.Components do
 
   defp hidden_below(nil), do: nil
   defp hidden_below(breakpoint), do: "hidden #{breakpoint}:table-cell"
+
+  @doc """
+  The link at the end of a table row.
+
+  An icon rather than a word: the label is the same in every row of every list,
+  so it is noise on screen and a screen reader can still read it.
+  """
+  attr(:navigate, :string, required: true)
+  attr(:label, :string, default: "View")
+  attr(:icon, :string, default: "hero-arrow-right")
+
+  def row_action(assigns) do
+    ~H"""
+    <.link
+      navigate={@navigate}
+      title={@label}
+      class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-brand"
+    >
+      <.icon name={@icon} class="h-4 w-4" />
+      <span class="sr-only">{@label}</span>
+    </.link>
+    """
+  end
 
   @doc """
   One `label — value` pair on a detail screen.

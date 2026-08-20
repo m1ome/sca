@@ -11,6 +11,7 @@ defmodule ScaWeb.ApprovalsLive do
 
   alias Sca.Models.Request
   alias Sca.Repos.RequestRepo
+  alias Sca.Search
 
   @statuses Ecto.Enum.values(Request, :status)
 
@@ -25,17 +26,17 @@ defmodule ScaWeb.ApprovalsLive do
 
     {:noreply,
      socket
-     |> assign(status: params["status"] || "", meta: meta)
+     |> assign(status: params["status"] || "", search: params["search"] || "", meta: meta)
      |> stream(:requests, preload(requests), reset: true)}
   end
 
   @impl true
-  def handle_event("filter", %{"status" => status}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/approvals?#{query(status, 1)}")}
+  def handle_event("filter", params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/approvals?#{query(params, 1)}")}
   end
 
   def handle_event("page", %{"page" => page}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/approvals?#{query(socket.assigns.status, page)}")}
+    {:noreply, push_patch(socket, to: ~p"/approvals?#{query(socket.assigns, page)}")}
   end
 
   @impl true
@@ -53,14 +54,21 @@ defmodule ScaWeb.ApprovalsLive do
         description="Everything your merchant has asked a bound device to confirm."
       />
 
-      <form phx-change="filter" class="mb-4 max-w-xs">
+      <form phx-change="filter" class="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
         <.input
           type="select"
           name="status"
           value={@status}
-          label="Status"
-          prompt="All statuses"
+          label="State"
+          prompt="All states"
           options={@status_options}
+        />
+        <.input
+          name="search"
+          value={@search}
+          label="Find"
+          placeholder="REQ-4711 or a uuid"
+          help="An id from a log, a webhook or the API."
         />
       </form>
 
@@ -75,6 +83,9 @@ defmodule ScaWeb.ApprovalsLive do
             <p class="truncate font-medium">{request.title}</p>
             <p class="truncate text-xs text-muted">{summary(request)}</p>
           </:col>
+          <:col :let={request} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{request.public_id}</span>
+          </:col>
           <:col :let={request} label="Type" width="w-28" hide_below="sm">
             <span class="text-muted">{String.capitalize(to_string(request.type))}</span>
           </:col>
@@ -87,12 +98,7 @@ defmodule ScaWeb.ApprovalsLive do
             </span>
           </:col>
           <:action :let={request}>
-            <.link
-              navigate={~p"/approvals/#{request.public_id}"}
-              class="text-sm font-semibold text-brand hover:text-brand-strong"
-            >
-              View
-            </.link>
+            <.row_action navigate={~p"/approvals/#{request.public_id}"} />
           </:action>
         </.table>
 
@@ -157,13 +163,18 @@ defmodule ScaWeb.ApprovalsLive do
 
   defp flop(params) do
     %{"page" => params["page"] || 1, "page_size" => 20}
-    |> Map.put("filters", filters(params["status"]))
+    |> Map.put("filters", filters(params))
   end
 
-  defp filters(status) when status in [nil, ""], do: []
-  defp filters(status), do: [%{"field" => "status", "op" => "==", "value" => status}]
+  defp filters(params) do
+    Enum.reject([status_filter(params["status"]), Search.filter(params["search"])], &is_nil/1)
+  end
 
-  defp query(status, page) do
-    %{"status" => status, "page" => page} |> Enum.reject(fn {_k, v} -> v in [nil, ""] end)
+  defp status_filter(status) when status in [nil, ""], do: nil
+  defp status_filter(status), do: %{"field" => "status", "op" => "==", "value" => status}
+
+  defp query(params, page) do
+    %{"status" => params["status"], "search" => params["search"], "page" => page}
+    |> Enum.reject(fn {_k, v} -> v in [nil, ""] end)
   end
 end

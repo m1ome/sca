@@ -76,7 +76,7 @@ defmodule ScaWeb.BindingLive do
         description={"Linked to #{@binding.external_id}."}
       >
         <:action>
-          <.button :if={@binding.status != :revoked} variant="secondary" phx-click="confirm-revoke">
+          <.button :if={@binding.status != :revoked} variant="danger" phx-click="confirm-revoke">
             Revoke device
           </.button>
         </:action>
@@ -94,6 +94,9 @@ defmodule ScaWeb.BindingLive do
               <p class="truncate font-medium">{request.title}</p>
               <p class="truncate text-xs text-muted">{String.capitalize(to_string(request.type))}</p>
             </:col>
+            <:col :let={request} label="ID" width="w-28" hide_below="sm">
+              <span class="font-mono text-xs text-muted">{request.public_id}</span>
+            </:col>
             <:col :let={request} label="State" width="w-32">
               <.status value={request.status} />
             </:col>
@@ -103,12 +106,7 @@ defmodule ScaWeb.BindingLive do
               </span>
             </:col>
             <:action :let={request}>
-              <.link
-                navigate={~p"/approvals/#{request.public_id}"}
-                class="text-sm font-semibold text-brand hover:text-brand-strong"
-              >
-                View
-              </.link>
+              <.row_action navigate={~p"/approvals/#{request.public_id}"} />
             </:action>
           </.table>
 
@@ -179,7 +177,7 @@ defmodule ScaWeb.BindingLive do
 
         <:footer>
           <.button variant="secondary" phx-click="cancel-revoke">Keep device</.button>
-          <.button phx-click="revoke">Revoke device</.button>
+          <.button variant="danger" phx-click="revoke">Revoke device</.button>
         </:footer>
       </.modal>
     </Layouts.app>

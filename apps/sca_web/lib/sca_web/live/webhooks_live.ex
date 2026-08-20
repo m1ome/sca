@@ -12,6 +12,7 @@ defmodule ScaWeb.WebhooksLive do
 
   alias Sca.Models.WebhookDelivery
   alias Sca.Repos.WebhookDeliveryRepo
+  alias Sca.Search
   alias Sca.Webhooks
 
   @statuses Ecto.Enum.values(WebhookDelivery, :status)
@@ -93,7 +94,7 @@ defmodule ScaWeb.WebhooksLive do
         description="What we sent to your endpoint, and what it answered."
       />
 
-      <form phx-change="filter" class="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
+      <form phx-change="filter" class="mb-4 grid gap-3 sm:grid-cols-3">
         <.input
           type="select"
           name="status"
@@ -109,6 +110,13 @@ defmodule ScaWeb.WebhooksLive do
           label="Event"
           prompt="All events"
           options={@event_options}
+        />
+        <.input
+          name="search"
+          value={@filters["search"]}
+          label="Find"
+          placeholder="WHK-88 or a uuid"
+          help="An id from a log or from the delivery header."
         />
       </form>
 
@@ -202,10 +210,10 @@ defmodule ScaWeb.WebhooksLive do
             <span class="break-all text-xs text-rose-600">{@selected.error}</span>
           </.field>
           <.field :if={@selected.response_body not in [nil, ""]} label="Body">
-            <span class="break-all font-mono text-xs">{@selected.response_body}</span>
+            <pre class="max-h-40 overflow-auto rounded-lg border border-line bg-canvas p-3"><code class="whitespace-pre-wrap break-all font-mono text-xs text-ink">{@selected.response_body}</code></pre>
           </.field>
           <.field label="Payload">
-            <pre class="max-h-56 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">{payload(@selected)}</pre>
+            <pre class="max-h-56 overflow-auto rounded-lg border border-line bg-canvas p-3"><code class="whitespace-pre-wrap break-all font-mono text-xs text-ink">{payload(@selected)}</code></pre>
           </.field>
         </dl>
 
@@ -242,7 +250,7 @@ defmodule ScaWeb.WebhooksLive do
   # Only the filters that were actually chosen: an empty select is not a filter.
   defp filters(params) do
     params
-    |> Map.take(["status", "event"])
+    |> Map.take(["status", "event", "search"])
     |> Map.reject(fn {_key, value} -> value in [nil, ""] end)
   end
 
@@ -250,7 +258,12 @@ defmodule ScaWeb.WebhooksLive do
 
   defp flop(filters, params) do
     flop_filters =
-      Enum.map(filters, fn {field, value} -> %{field: field, op: :==, value: value} end)
+      filters
+      |> Enum.map(fn
+        {"search", term} -> Search.filter(term)
+        {field, value} -> %{"field" => field, "op" => "==", "value" => value}
+      end)
+      |> Enum.reject(&is_nil/1)
 
     %{"page" => params["page"] || 1, "page_size" => 25, "filters" => flop_filters}
   end

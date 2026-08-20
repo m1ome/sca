@@ -216,11 +216,19 @@ defmodule ScaAdmin.ConsoleTest do
       html = live |> form("form[phx-change=role]", %{"role" => "superadmin"}) |> render_change()
       assert html =~ "Role updated"
 
+      # Both actions ask first; the button in the modal is what does it.
       html = live |> element("button", "Disable access") |> render_click()
+      assert html =~ "Disable this account?"
+      assert {:ok, %{status: :active}} = AdminRepo.get(colleague.id)
+
+      html = live |> element("#confirm-disable button", "Disable access") |> render_click()
       assert html =~ "Access disabled"
       assert {:ok, %{status: :disabled}} = AdminRepo.get(colleague.id)
 
       html = live |> element("button", "Reset password") |> render_click()
+      assert html =~ "Reset this password?"
+
+      html = live |> element("#confirm-reset button", "Reset password") |> render_click()
       assert html =~ "New password"
     end
 

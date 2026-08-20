@@ -84,6 +84,9 @@ defmodule ScaWeb.TeamLive do
             <p class="truncate font-medium">{display_name(member)}</p>
             <p class="truncate text-xs text-muted">{member.email}</p>
           </:col>
+          <:col :let={member} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{member.public_id}</span>
+          </:col>
           <:col :let={member} label="Role" width="w-32" hide_below="sm">
             <span class="text-muted">{String.capitalize(to_string(member.role))}</span>
           </:col>
@@ -96,12 +99,7 @@ defmodule ScaWeb.TeamLive do
             </span>
           </:col>
           <:action :let={member}>
-            <.link
-              navigate={~p"/team/#{member.public_id}"}
-              class="text-sm font-semibold text-brand hover:text-brand-strong"
-            >
-              View
-            </.link>
+            <.row_action navigate={~p"/team/#{member.public_id}"} />
           </:action>
         </.table>
       </.surface>

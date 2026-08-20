@@ -91,12 +91,7 @@ defmodule ScaAdmin.TeamLive do
             </span>
           </:col>
           <:action :let={admin}>
-            <.link
-              navigate={~p"/team/#{admin.public_id}"}
-              class="text-sm font-semibold text-brand hover:text-brand-strong"
-            >
-              View
-            </.link>
+            <.row_action navigate={~p"/team/#{admin.public_id}"} />
           </:action>
         </.table>
       </.surface>
