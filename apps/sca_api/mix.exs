@@ -38,6 +38,7 @@ defmodule ScaApi.MixProject do
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},
       {:logster, "~> 2.0.0-rc.5"},
+      {:bureaucrat, "~> 0.2.10", only: :test},
       {:sca, in_umbrella: true}
     ]
   end

@@ -32,6 +32,7 @@ defmodule ScaUi.Shell do
   attr :subtitle, :string, default: nil
   attr :identity, :string, required: true
   attr :identity_path, :string, default: nil
+  attr :docs_path, :string, default: nil, doc: "the API documentation, when this console has one"
   attr :sign_out_path, :string, required: true
   slot :inner_block, required: true
 
@@ -74,6 +75,16 @@ defmodule ScaUi.Shell do
             <span class="text-sm font-semibold text-ink">{@active}</span>
 
             <div class="flex items-center gap-3">
+              <.link
+                :if={@docs_path}
+                href={@docs_path}
+                target="_blank"
+                title="API documentation"
+                class="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-ink"
+              >
+                <.icon name="hero-book-open" class="h-4 w-4" />
+                <span class="hidden sm:inline">API docs</span>
+              </.link>
               <.link
                 :if={@identity_path}
                 navigate={@identity_path}

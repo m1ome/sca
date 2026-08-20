@@ -149,6 +149,19 @@ This is a web application written using the Phoenix web framework.
   header only fills it in when the body did not. A binding has
   `idempotency_key` of its own, because its `external_id` names a person and
   enrolling that person again is how a lost phone is replaced.
+- The published documentation covers the merchant API only — the device API is a
+  contract with the installed client, not something anyone integrates against,
+  so it stays out of it.
+- The API documentation is generated, not written: `mix api.docs` runs
+  `ScaApi.ApiDocsTest` with `DOC=1`, Bureaucrat records the calls it made, and
+  `ScaApi.BlueprintWriter` (test support) turns them into `docs/api.apib` with
+  the prose from `docs/api.intro.md` above them; aglio renders it into
+  `apps/sca_web/priv/docs/api.html`, which `ScaWeb.DocsController` serves at
+  `/docs`. Both generated files are committed — the image has no Node.
+  A new endpoint is documented by adding its calls to that test, next to the
+  other examples of the same endpoint and under the same `title:`: Bureaucrat
+  groups what it sees in sequence, so a stray call in between splits an endpoint
+  in two.
 - Both authentications are plugs (`ScaApi.DeviceAuth`, `ScaApi.MerchantAuth`) and
   both put a `Sca.Scope` in the conn; controllers go through it.
 - An error goes out as `{"error": {"code", "message", "fields"}}`, the fields

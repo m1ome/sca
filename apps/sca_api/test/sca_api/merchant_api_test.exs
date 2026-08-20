@@ -89,6 +89,20 @@ defmodule ScaApi.MerchantApiTest do
       assert binding["id"] == device.binding.id
     end
 
+    test "the page size in the query is honoured, up to a hundred", ctx do
+      for index <- 1..3, do: Fixtures.device(ctx.tenant, "customer-#{index}")
+
+      conn = get(ctx.conn, ~p"/api/merchant/v1/bindings?page=1&page_size=2")
+
+      assert %{"data" => [_one, _two], "page" => page} = json_response(conn, 200)
+      assert page["size"] == 2
+      assert page["total_count"] == 3
+
+      conn = get(ctx.conn, ~p"/api/merchant/v1/bindings?page_size=500")
+
+      assert %{"page" => %{"size" => 100}} = json_response(conn, 200)
+    end
+
     test "revoking retires the device", ctx do
       device = Fixtures.device(ctx.tenant)
 

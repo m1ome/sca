@@ -18,6 +18,12 @@ defmodule ScaWeb.Router do
   end
 
   scope "/", ScaWeb do
+    pipe_through :browser
+
+    get "/docs", DocsController, :show
+  end
+
+  scope "/", ScaWeb do
     pipe_through [:browser, :redirect_if_authenticated]
 
     get "/log-in", SessionController, :new

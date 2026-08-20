@@ -26,6 +26,7 @@ defmodule ScaApi.MerchantController do
   alias ScaApi.JSON
 
   @page_size 50
+  @max_page_size 100
 
   @doc """
   Starts an enrollment and returns the activation code.
@@ -198,7 +199,25 @@ defmodule ScaApi.MerchantController do
   end
 
   defp page(params) do
-    %{"page" => params["page"] || 1, "page_size" => min(params["page_size"] || @page_size, 100)}
+    %{"page" => params["page"] || 1, "page_size" => min(page_size(params), @max_page_size)}
+  end
+
+  # A query string carries "50", not 50, and `min/2` between a string and an
+  # integer answers the integer — so a size has to be a number before it is
+  # capped, or every list comes back at the maximum.
+  defp page_size(params) do
+    case params["page_size"] do
+      size when is_integer(size) -> size
+      size when is_binary(size) -> parse_page_size(size)
+      _absent -> @page_size
+    end
+  end
+
+  defp parse_page_size(size) do
+    case Integer.parse(size) do
+      {size, ""} -> size
+      _other -> @page_size
+    end
   end
 
   # The phone is told where to come back to, so a merchant keeps no address of

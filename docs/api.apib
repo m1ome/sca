@@ -1,0 +1,837 @@
+FORMAT: 1A
+HOST: https://api.sca.example.com
+
+# SCA API
+
+Strong Customer Authentication as a service. Your user approves a payment or a
+sign-in on a device bound to them, and what you are left with is a signature
+made by a key that never left that device.
+
+This is the **merchant API**, `/api/merchant/v1`: it enrols devices and raises
+approvals, and it is everything an integration needs. What happens between the
+phone and us afterwards is ours to worry about.
+
+Every example below is generated from the test suite: the requests were really
+made and the responses are what the server really answered.
+
+## How an integration goes
+
+1. **Enrol the person once.** `POST /bindings`, carrying your own identifier for
+   them, answers with an activation code and the exact string to put into a QR.
+   They scan it with the app, the binding turns `active`, and a
+   `binding.activated` webhook says so.
+2. **Ask for an approval.** `POST /approvals` names the device and what is being
+   approved. The card arrives on the phone as a push notification.
+3. **Learn the answer.** A `request.confirmed` or `request.declined` webhook
+   arrives; `GET /approvals/{id}` says the same thing to anyone who would rather
+   poll.
+4. **Keep the evidence.** A confirmed approval carries the signature, the exact
+   bytes that were signed, and the hash of the parameters you sent.
+
+## Addresses
+
+The merchant API is at `/api/merchant/v1` on the API host of your deployment —
+the console prints it under Settings. Everything in this document is relative to
+that host.
+
+There is one version, `v1`, and it is in the path. A new field may appear in a
+response at any time; nothing that exists is renamed or removed without a new
+version, so parse leniently and ignore what you do not know.
+
+## Authentication
+
+Every call carries an API key as a bearer token:
+
+```
+Authorization: Bearer sca_live_9WKUq...
+```
+
+Keys are issued in the merchant console under **Settings -> API keys**, shown
+once at creation and never again, and can be revoked there. A key belongs to one
+merchant, and every lookup it makes is narrowed to that merchant's data: another
+merchant's binding is `404`, never `403`.
+
+- `401 unauthorized` — no key, an unknown key, or one that has been revoked.
+- `403 merchant_suspended` — the key is fine, the account is not being served.
+
+Keys are secrets in the same sense as a password: they belong on your server,
+never in a mobile app or a browser.
+
+## Retrying safely
+
+An HTTP call that times out leaves you unable to tell whether it happened, so
+both creating calls are safe to repeat.
+
+**Approvals** are keyed by `external_id` — your own reference for the thing being
+approved, which you almost certainly already have. Repeat a `POST /approvals`
+with the same `external_id` and the first card comes back with `200` instead of a
+second one being raised on the phone. When you send no `external_id`, an
+`Idempotency-Key` header fills it in.
+
+**Bindings** are keyed by the `Idempotency-Key` header alone. Their `external_id`
+names a *person*, not a call — enrolling the same person again is how a lost
+phone is replaced, so it cannot double as the retry key. A repeated call answers
+`200` with the same activation code, which matters: a fresh code would invalidate
+the QR you may already be showing.
+
+## Paging
+
+Lists take `page` (from 1) and `page_size` (50 by default, 100 at most), and
+answer with the rows in `data` and the position in `page`:
+
+```json
+{
+  "data": [],
+  "page": { "current": 1, "size": 50, "total_pages": 3, "total_count": 118 }
+}
+```
+
+## Errors
+
+Every refusal has the same shape, whichever API it came from:
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Some fields were rejected.",
+    "fields": { "currency": ["is required for a payment request"] }
+  }
+}
+```
+
+`code` is for your code, `message` is for a human reading a log, and `fields` is
+present only when individual fields were rejected — keyed as you sent them.
+
+| Status | `code` | What happened |
+|---|---|---|
+| 400 | `invalid_request` | A required field of the call itself is missing |
+| 401 | `unauthorized` | The API key is missing, unknown or revoked |
+| 403 | `merchant_suspended` | The account is not being served |
+| 404 | `not_found` | No such binding or approval **for this merchant** |
+| 409 | `binding_not_active` | That device is pending or revoked and cannot be asked |
+| 409 | `not_pending` | The approval was already answered, cancelled or has expired |
+| 422 | `invalid_request` | Fields were rejected; see `fields` |
+
+## What a card may carry
+
+`params` is what the phone shows the user and what the signature is computed
+over, so it is deliberately narrow: a flat object of strings, numbers or
+booleans — no nested objects, no arrays. Nothing else has a rendering that iOS
+and Android can reproduce byte for byte.
+
+- at most 20 fields; names up to 40 characters, values up to 200
+- `title` up to 140 characters, `description` up to 500
+- unknown keys are welcome and are shown to the user as extra rows
+
+Three types, differing only in what they insist on:
+
+| `type` | Required `params` |
+|---|---|
+| `payment` | `amount`, `currency`, `beneficiary` |
+| `login` | `ip` |
+| `freeform` | none |
+
+`amount` is a plain decimal with at most two fraction digits (`"149.90"`), kept
+as the string you sent — the phone hashes that exact text. `currency` is an
+ISO 4217 code and is upper-cased. `ip` must parse as an IPv4 or IPv6 address.
+
+## Deadlines
+
+An approval expires on its own. Send `expires_at` (RFC 3339) to say when, or
+leave it out and the merchant default applies — 5 minutes, adjustable between 30
+seconds and an hour in the console. An expired card cannot be answered by the
+device any more and turns `expired`, with a webhook to match.
+
+An activation code lives for 15 minutes. Once the device is bound it stays
+bound: a user who opens the app now and then never scans a QR again, and one who
+does not is asked for a new code only after a month of silence.
+
+## Statuses
+
+A binding: `pending` (enrolled, nobody has scanned it yet) -> `active` -> `revoked`.
+Revoking is final; the person enrols again to get a new device.
+
+An approval: `pending` -> `confirmed` | `declined` (the user answered),
+`expired` (the clock), `cancelled` (you took it back).
+
+## Webhooks
+
+The URL, the signing secret and an optional encryption certificate live in the
+console under **Settings -> Webhooks**, where you can also fire any event at your
+endpoint as a test — the same envelope, the same signature, with `"test": true`
+added so a receiver can take it apart without acting on it.
+
+Events: `binding.activated`, `binding.revoked`, `request.created`,
+`request.confirmed`, `request.declined`, `request.expired`, `request.cancelled`.
+
+The envelope keeps its routing metadata in the clear:
+
+```json
+{
+  "id": "0f1c...",
+  "event": "request.confirmed",
+  "created_at": "2026-08-20T10:11:12Z",
+  "data": {
+    "request": { "id": "...", "external_id": "order-4471", "status": "confirmed" },
+    "binding": { "id": "...", "external_id": "customer-4471", "status": "active" }
+  }
+}
+```
+
+The identifiers are the same UUIDs the API answered you with, so a webhook can be
+matched against the call that caused it. With a certificate configured, `data` is
+replaced by `encrypted`: a compact JWE (`RSA-OAEP-256` + `A256GCM`) of the same
+object, so what a log or a queue keeps afterwards is unreadable without your
+private key.
+
+Each delivery carries:
+
+```
+X-SCA-Event: request.confirmed
+X-SCA-Delivery: 0f1c...
+X-SCA-Signature: t=1755500000,v1=<hex>
+```
+
+The signature is `HMAC-SHA256(secret, "<t>.<raw body>")`, hex, lower case. The
+timestamp is inside the signed string, so a captured call cannot be replayed
+later; reject anything older than a few minutes, and compare digests in constant
+time.
+
+Answer `2xx` and be quick about it: connect times out after 5 seconds, the
+response after 10. Anything else is retried up to 8 times with jittered
+exponential backoff, from half a minute to an hour. Redirects are not followed.
+Deliveries and their attempts are visible in the console, and can be resent from
+there.
+
+## The evidence you keep
+
+A confirmed or declined approval carries three fields worth storing:
+
+- `payload_hash` — SHA-256, lower-case hex, of the canonical rendering of
+  `params`: keys sorted, one `key=value` line each, joined with `\n`.
+- `signed_payload` — the exact string the device signed:
+  `sca-service:v1:{approval id}:{nonce}:{confirm|deny}:{payload_hash}`
+- `signature` — base64 of an ASN.1 DER ECDSA signature over SHA-256 of that
+  string, made with the device key (`signature_algorithm: "ecdsa-p256"`).
+
+The check worth making is that the card the user signed is the card you asked
+for: recompute `payload_hash` from the `params` you sent and confirm it is the
+one inside `signed_payload`. The device's public key stays with us on purpose —
+it is what makes a signature ours to verify and not something a merchant can
+forge — so verifying the signature itself is our side of the bargain, done
+before an approval is ever reported as confirmed.
+
+# Group Merchant API
+
+## Bindings and approvals [/api/merchant/v1]
+
+### Enrol a device [POST /api/merchant/v1/bindings]
+
+Starts an enrollment and answers with the activation code.
+
+`activation.qr_payload` is the exact string to encode into a QR — the
+phone reads our address out of it, so nothing about us has to sit in
+your configuration. The code is good for 15 minutes.
+
+`external_id` is your own identifier for the person. Enrolling it again
+replaces that person's device, which is how a lost phone is replaced, so
+the retry key here is the `Idempotency-Key` header instead.
+
++ Request A person enrolling for the first time (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+            Idempotency-Key: enroll-4471
+
+    + Body
+
+            {
+              "external_id": "customer-4471",
+              "name": "Dana's iPhone"
+            }
+
++ Response 201 (application/json)
+
+    + Body
+
+            {
+              "activated_at": null,
+              "activation": {
+                "code": "8dUMmYRTUaspcs-veVud0b37j4JQbhvv",
+                "connect_url": "https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a",
+                "expires_at": "2026-08-20T21:22:35.990046Z",
+                "nonce": "mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8",
+                "qr_payload": "{\"connect_token\":\"8dUMmYRTUaspcs-veVud0b37j4JQbhvv\",\"connect_url\":\"https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a\",\"nonce\":\"mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8\",\"type\":\"sca-proto-enroll\"}"
+              },
+              "attested": false,
+              "external_id": "customer-4471",
+              "id": "c7a8ee14-c16a-4c16-804c-00aaf9b8b708",
+              "last_seen_at": null,
+              "name": "Dana's iPhone",
+              "push_platform": null,
+              "revoked_at": null,
+              "status": "pending"
+            }
+
++ Request The same call again, with the same Idempotency-Key (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+            Idempotency-Key: enroll-4471
+
+    + Body
+
+            {
+              "external_id": "customer-4471",
+              "name": "Dana's iPhone"
+            }
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "activated_at": null,
+              "activation": {
+                "code": "8dUMmYRTUaspcs-veVud0b37j4JQbhvv",
+                "connect_url": "https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a",
+                "expires_at": "2026-08-20T21:22:35.990046Z",
+                "nonce": "mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8",
+                "qr_payload": "{\"connect_token\":\"8dUMmYRTUaspcs-veVud0b37j4JQbhvv\",\"connect_url\":\"https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a\",\"nonce\":\"mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8\",\"type\":\"sca-proto-enroll\"}"
+              },
+              "attested": false,
+              "external_id": "customer-4471",
+              "id": "c7a8ee14-c16a-4c16-804c-00aaf9b8b708",
+              "last_seen_at": null,
+              "name": "Dana's iPhone",
+              "push_platform": null,
+              "revoked_at": null,
+              "status": "pending"
+            }
+
++ Request Without a reference of your own (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
+    + Body
+
+            {
+              "name": "Dana's iPhone"
+            }
+
++ Response 422 (application/json)
+
+    + Body
+
+            {
+              "error": {
+                "code": "invalid_request",
+                "fields": {
+                  "external_id": [
+                    "can't be blank"
+                  ]
+                },
+                "message": "Some fields were rejected."
+              }
+            }
+
+### List devices [GET /api/merchant/v1/bindings{?page,page_size}]
+
+Your devices, newest first. `page` counts from 1, `page_size` is 50 by
+default and 100 at most.
+
++ Parameters
+    + page: `1` (string, optional)
+    + page_size: `50` (string, optional)
+
++ Request The first page
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "data": [
+                {
+                  "activated_at": "2026-08-20T21:07:34.196369Z",
+                  "attested": false,
+                  "external_id": "customer-4471",
+                  "id": "f60e9013-58d2-4a0a-a247-b4e16d5ecd6a",
+                  "last_seen_at": null,
+                  "name": "Dana's iPhone",
+                  "push_platform": "ios",
+                  "revoked_at": null,
+                  "status": "active"
+                }
+              ],
+              "page": {
+                "current": 1,
+                "size": 50,
+                "total_count": 1,
+                "total_pages": 1
+              }
+            }
+
++ Request With a key that has been revoked
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 401 (application/json)
+
+    + Body
+
+            {
+              "error": {
+                "code": "unauthorized",
+                "message": "Present a valid API key."
+              }
+            }
+
+### Fetch a device [GET /api/merchant/v1/bindings/{id}]
+
+Takes the binding's uuid or your own `external_id` — whichever you kept.
+A device belonging to another merchant is `404`, not `403`.
+
++ Parameters
+    + id: `d8c1cb7f-ef98-47d4-8592-ff7246ec7792` (string, required)
+
++ Request By its id
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "activated_at": "2026-08-20T21:07:35.374781Z",
+              "attested": false,
+              "external_id": "customer-4471",
+              "id": "d8c1cb7f-ef98-47d4-8592-ff7246ec7792",
+              "last_seen_at": null,
+              "name": "Dana's iPhone",
+              "push_platform": "ios",
+              "revoked_at": null,
+              "status": "active"
+            }
+
++ Request A reference nobody here has
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 404 (application/json)
+
+    + Body
+
+            {
+              "error": {
+                "code": "not_found",
+                "fields": null,
+                "message": "No such binding."
+              }
+            }
+
+### Revoke a device [POST /api/merchant/v1/bindings/{id}/revoke]
+
+Final: nothing can be asked of the device again and the app stops
+working on the next call. The person enrols anew to get a new one.
+
++ Parameters
+    + id: `76bf42e8-5ad7-49d7-baf3-56e38af2631f` (string, required)
+
++ Request The phone is gone
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "activated_at": "2026-08-20T21:07:36.392678Z",
+              "attested": false,
+              "external_id": "customer-4471",
+              "id": "76bf42e8-5ad7-49d7-baf3-56e38af2631f",
+              "last_seen_at": null,
+              "name": "Dana's iPhone",
+              "push_platform": "ios",
+              "revoked_at": "2026-08-20T21:07:36.396757Z",
+              "status": "revoked"
+            }
+
+### Ask for an approval [POST /api/merchant/v1/approvals]
+
+Raises the card on the phone and pushes a notification at it.
+
+`binding` takes the device's uuid or your own `external_id` for its
+owner. `external_id` on the approval itself is your reference for what
+is being approved, and doubles as the retry key.
+
+`params` is what the user sees and what the signature covers: a flat
+object of scalars, at most 20 of them. A `payment` needs `amount`,
+`currency` and `beneficiary`; a `login` needs `ip`; a `freeform` insists
+on nothing. Add fields of your own and they are shown as extra rows.
+
+Without `expires_at` the merchant default applies — 5 minutes, set in
+the console.
+
++ Request A payment, on a device named by its id (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
+    + Body
+
+            {
+              "binding": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+              "description": "Transfer to ACME Ltd",
+              "external_id": "order-4471",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
++ Response 201 (application/json)
+
+    + Body
+
+            {
+              "binding": {
+                "activated_at": "2026-08-20T21:07:35.654507Z",
+                "attested": false,
+                "external_id": "customer-4471",
+                "id": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+                "last_seen_at": null,
+                "name": "Dana's iPhone",
+                "push_platform": "ios",
+                "revoked_at": null,
+                "status": "active"
+              },
+              "created_at": "2026-08-20T21:07:35.696832Z",
+              "decided_at": null,
+              "description": "Transfer to ACME Ltd",
+              "expires_at": "2026-08-20T21:12:35.696701Z",
+              "external_id": "order-4471",
+              "id": "bec06904-9cb8-400f-82d6-c12964c328ac",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "payload_hash": "a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+              "signature": null,
+              "signature_algorithm": null,
+              "signed_payload": null,
+              "status": "pending",
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
++ Request The same reference again: the first card, not a second one (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
+    + Body
+
+            {
+              "binding": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+              "description": "Transfer to ACME Ltd",
+              "external_id": "order-4471",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "binding": {
+                "activated_at": "2026-08-20T21:07:35.654507Z",
+                "attested": false,
+                "external_id": "customer-4471",
+                "id": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+                "last_seen_at": null,
+                "name": "Dana's iPhone",
+                "push_platform": "ios",
+                "revoked_at": null,
+                "status": "active"
+              },
+              "created_at": "2026-08-20T21:07:35.696832Z",
+              "decided_at": null,
+              "description": "Transfer to ACME Ltd",
+              "expires_at": "2026-08-20T21:12:35.696701Z",
+              "external_id": "order-4471",
+              "id": "bec06904-9cb8-400f-82d6-c12964c328ac",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "payload_hash": "a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+              "signature": null,
+              "signature_algorithm": null,
+              "signed_payload": null,
+              "status": "pending",
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
++ Request Params a payment cannot go without (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
+    + Body
+
+            {
+              "binding": "customer-4471",
+              "params": {
+                "amount": "149.90"
+              },
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
++ Response 422 (application/json)
+
+    + Body
+
+            {
+              "error": {
+                "code": "invalid_request",
+                "fields": {
+                  "beneficiary": [
+                    "is required for a payment request"
+                  ],
+                  "currency": [
+                    "is required for a payment request"
+                  ]
+                },
+                "message": "Some fields were rejected."
+              }
+            }
+
++ Request On a device that was revoked (application/json)
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
+    + Body
+
+            {
+              "binding": "42b4eb2d-f03a-4217-bda8-f321e52e24d6",
+              "description": "Transfer to ACME Ltd",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
++ Response 409 (application/json)
+
+    + Body
+
+            {
+              "error": {
+                "code": "binding_not_active",
+                "fields": null,
+                "message": "That device cannot answer requests."
+              }
+            }
+
+### List approvals [GET /api/merchant/v1/approvals{?page,page_size}]
+
+Your approvals, newest first, each with the device it was raised on.
++ Parameters
+    + page: `1` (string, optional)
+    + page_size: `50` (string, optional)
+
++ Request The first page
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "data": [
+                {
+                  "binding": {
+                    "activated_at": "2026-08-20T21:07:35.123081Z",
+                    "attested": false,
+                    "external_id": "customer-4471",
+                    "id": "814467ef-2ebb-4200-8438-cb6f5aeda445",
+                    "last_seen_at": null,
+                    "name": "Dana's iPhone",
+                    "push_platform": "ios",
+                    "revoked_at": null,
+                    "status": "active"
+                  },
+                  "created_at": "2026-08-20T21:07:35.128589Z",
+                  "decided_at": null,
+                  "description": "Transfer to ACME Ltd",
+                  "expires_at": "2026-08-20T21:12:35.128441Z",
+                  "external_id": "order-4471",
+                  "id": "a2e28c9b-5adf-49da-acb0-658856354b91",
+                  "params": {
+                    "amount": "149.90",
+                    "beneficiary": "ACME Ltd",
+                    "currency": "EUR"
+                  },
+                  "payload_hash": "a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+                  "signature": null,
+                  "signature_algorithm": null,
+                  "signed_payload": null,
+                  "status": "pending",
+                  "title": "Payment confirmation",
+                  "type": "payment"
+                }
+              ],
+              "page": {
+                "current": 1,
+                "size": 50,
+                "total_count": 1,
+                "total_pages": 1
+              }
+            }
+
+### Fetch an approval [GET /api/merchant/v1/approvals/{id}]
+
+What a webhook would have told you, for anyone who would rather poll.
+
+Once it is answered, the approval carries the evidence: `signature`,
+`signed_payload` — the exact string the device signed — and
+`payload_hash`, the hash of the params it covers.
+
++ Parameters
+    + id: `7bf994ae-9331-4f0b-ac3c-f4b66a664276` (string, required)
+
++ Request One the user confirmed
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "binding": {
+                "activated_at": "2026-08-20T21:07:36.190388Z",
+                "attested": false,
+                "external_id": "customer-4471",
+                "id": "6bea6b94-692b-4e17-ab75-0746aabcaa51",
+                "last_seen_at": null,
+                "name": "Dana's iPhone",
+                "push_platform": "ios",
+                "revoked_at": null,
+                "status": "active"
+              },
+              "created_at": "2026-08-20T21:07:36.192601Z",
+              "decided_at": "2026-08-20T21:07:36.194811Z",
+              "description": "Transfer to ACME Ltd",
+              "expires_at": "2026-08-20T21:12:36.192554Z",
+              "external_id": "order-4471",
+              "id": "7bf994ae-9331-4f0b-ac3c-f4b66a664276",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "payload_hash": "a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+              "signature": "MEUCIQDnd6YkHy+Q0VAmsgep+o6AOlu44U+JpX55lDFJgJpXcwIgZ7jrOHxvaMg5wHGEN9UmH/A51qVWSaj5DbSihcMmJBk=",
+              "signature_algorithm": "ecdsa-p256",
+              "signed_payload": "sca-service:v1:7bf994ae-9331-4f0b-ac3c-f4b66a664276:QeqoDirHe4VW5iPa7cEweA:confirm:a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+              "status": "confirmed",
+              "title": "Payment confirmation",
+              "type": "payment"
+            }
+
+### Cancel an approval [POST /api/merchant/v1/approvals/{id}/cancel]
+
+Closes a card the user has not answered. One that was already answered,
+cancelled or expired is `409 not_pending`.
+
++ Parameters
+    + id: `b323da78-b17c-45ba-86b0-1e6db67f1dce` (string, required)
+
++ Request Nobody had answered it yet
+
+    + Headers
+
+            Authorization: Bearer sca_live_9WKUq7yTdNjF2m...
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+              "binding": {
+                "activated_at": "2026-08-20T21:07:34.722482Z",
+                "attested": false,
+                "external_id": "customer-4471",
+                "id": "f3be5030-cba9-44dd-88ce-f992018a9775",
+                "last_seen_at": null,
+                "name": "Dana's iPhone",
+                "push_platform": "ios",
+                "revoked_at": null,
+                "status": "active"
+              },
+              "created_at": "2026-08-20T21:07:34.807162Z",
+              "decided_at": "2026-08-20T21:07:34.839627Z",
+              "description": "Transfer to ACME Ltd",
+              "expires_at": "2026-08-20T21:12:34.755844Z",
+              "external_id": "order-4471",
+              "id": "b323da78-b17c-45ba-86b0-1e6db67f1dce",
+              "params": {
+                "amount": "149.90",
+                "beneficiary": "ACME Ltd",
+                "currency": "EUR"
+              },
+              "payload_hash": "a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+              "signature": null,
+              "signature_algorithm": null,
+              "signed_payload": null,
+              "status": "cancelled",
+              "title": "Payment confirmation",
+              "type": "payment"
+            }

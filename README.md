@@ -60,6 +60,24 @@ Both live in `apps/sca_api`; the routes are in `ScaApi.Router`.
   approval the key is its `external_id`, for a binding an `Idempotency-Key`
   header.
 
+### Documentation
+
+The merchant-facing documentation — the merchant API alone; the device API is
+the mobile client's contract — is an API Blueprint. Its prose is written by
+hand in `docs/api.intro.md`; its examples are not written at all — Bureaucrat
+records the calls `apps/sca_api/test/sca_api/api_docs_test.exs` really makes and
+writes them into `docs/api.apib`, so an example that stops matching the API
+fails a test instead of quietly becoming a lie.
+
+```bash
+mix api.docs     # runs that test with DOC=1, then renders with aglio
+```
+
+Both outputs are committed: the merchant console serves the rendered page at
+[/docs](http://localhost:4000/docs) — there is a link to it in the console
+header — and the release image has no Node in it. Rendering needs `npx` on the
+PATH; nothing else here needs Node.
+
 ## Building and deploying
 
 Everything ships as one release, `sca`: the domain, the API and both consoles in

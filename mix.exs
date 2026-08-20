@@ -62,6 +62,10 @@ defmodule Sca.Umbrella.MixProject do
         "do --app sca_web assets.deploy",
         "do --app sca_admin assets.deploy"
       ],
+      # The API documentation, rebuilt from the tests that make its examples.
+      # The task itself lives in `sca_api`, which is what a task from an
+      # umbrella's child needs to be reachable from the root.
+      "api.docs": ["do --app sca_api api.docs"],
       # Dialyzer is minutes, not seconds — kept out of `precommit` on purpose.
       typecheck: ["dialyzer"],
       precommit: [
