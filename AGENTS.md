@@ -109,6 +109,9 @@ This is a web application written using the Phoenix web framework.
 - A list row carries a title, a human description, a status, a time and `View` —
   no decisions, and none of the signed params.
 - `status/1` is read-only: a pill must never look clickable.
+- Anything that looks like a button is `<.button>` — it takes `navigate`/`href`
+  for links. Hand-rolling the classes is how two buttons end up different sizes
+  next to each other.
 - Screens reach entities through `Sca.Scope`, not through repos.
 - Authentication is `ScaWeb.Auth`: the password check lives here, the domain
   hands out a hash.

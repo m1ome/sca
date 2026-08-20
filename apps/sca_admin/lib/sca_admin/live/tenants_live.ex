@@ -1,12 +1,28 @@
 defmodule ScaAdmin.TenantsLive do
-  @moduledoc "Every merchant on the platform."
+  @moduledoc """
+  Every merchant on the platform, and the form that onboards one.
+
+  Onboarding creates the merchant together with the person who will run it:
+  a tenant nobody can sign into is a dead end. Their password is shown once,
+  here, because this is the only moment anyone will see it.
+  """
 
   use ScaAdmin, :live_view
 
+  alias Sca.Actions
   alias Sca.Repos.TenantRepo
+  alias ScaUi.PublicUrl
 
   @impl true
-  def mount(_params, _session, socket), do: {:ok, assign(socket, page_title: "Tenants")}
+  def mount(_params, _session, socket) do
+    {:ok,
+     assign(socket,
+       page_title: "Tenants",
+       modal: :closed,
+       form: onboarding_form(),
+       credentials: nil
+     )}
+  end
 
   @impl true
   def handle_params(params, _uri, socket) do
@@ -20,6 +36,27 @@ defmodule ScaAdmin.TenantsLive do
     {:noreply, push_patch(socket, to: ~p"/tenants?page=#{page}")}
   end
 
+  def handle_event("new", _params, socket) do
+    {:noreply, assign(socket, modal: :form, form: onboarding_form(), credentials: nil)}
+  end
+
+  def handle_event("close", _params, socket) do
+    {:noreply, assign(socket, modal: :closed, credentials: nil)}
+  end
+
+  def handle_event("onboard", %{"tenant" => params}, socket) do
+    case Actions.Tenant.create(params) do
+      {:ok, onboarding} ->
+        {:noreply,
+         socket
+         |> assign(modal: :credentials, credentials: onboarding)
+         |> stream_insert(:tenants, onboarding.tenant, at: 0)}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset, as: :tenant))}
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -28,7 +65,13 @@ defmodule ScaAdmin.TenantsLive do
         eyebrow="Platform"
         title="Tenants"
         description="The merchants using strong customer authentication here."
-      />
+      >
+        <:action>
+          <.button phx-click="new">
+            <.icon name="hero-plus" class="h-4 w-4" /> New merchant
+          </.button>
+        </:action>
+      </.page_header>
 
       <.surface>
         <.list_header title="Merchants" description={"#{@meta.total_count} in total"} />
@@ -63,6 +106,12 @@ defmodule ScaAdmin.TenantsLive do
             </.link>
           </:action>
         </.table>
+
+        <.empty_state
+          :if={@meta.total_count == 0}
+          title="No merchants yet"
+          description="Onboard one to give it a console, devices and an API key."
+        />
       </.surface>
 
       <div
@@ -90,8 +139,71 @@ defmodule ScaAdmin.TenantsLive do
           </.button>
         </div>
       </div>
+      <.modal
+        :if={@modal == :form}
+        id="new-tenant"
+        show
+        on_cancel={JS.push("close")}
+        title="New merchant"
+        description="The merchant and the person who will run its console."
+      >
+        <.form :let={f} for={@form} id="tenant-form" phx-submit="onboard" class="space-y-4">
+          <.input field={f[:name]} label="Merchant name" placeholder="Northstar Payments" required />
+          <.input
+            field={f[:owner_email]}
+            type="email"
+            label="Owner email"
+            placeholder="ops@northstar.com"
+            help="They sign in with this, the merchant id and the password we generate."
+            required
+          />
+          <.input field={f[:owner_name]} label="Owner name" placeholder="Dana Reeves" />
+        </.form>
+
+        <:footer>
+          <.button variant="secondary" phx-click="close">Cancel</.button>
+          <.button type="submit" form="tenant-form">Onboard merchant</.button>
+        </:footer>
+      </.modal>
+
+      <.modal
+        :if={@modal == :credentials}
+        id="tenant-credentials"
+        show
+        on_cancel={JS.push("close")}
+        title="How they sign in"
+        description="Shown once. We keep the hash, never the password itself."
+      >
+        <dl>
+          <.field label="Console">{console_url()}</.field>
+          <.field label="Merchant id">{@credentials.tenant.public_id}</.field>
+          <.field label="Email">
+            <span class="truncate">{@credentials.user.email}</span>
+          </.field>
+          <.field label="Password">
+            <span id="owner-password" class="break-all font-mono text-xs">
+              {@credentials.password}
+            </span>
+          </.field>
+        </dl>
+
+        <:footer>
+          <.button variant="secondary" phx-click={JS.dispatch("sca:copy", to: "#owner-password")}>
+            Copy password
+          </.button>
+          <.button navigate={~p"/tenants/#{@credentials.tenant.public_id}"}>
+            Open merchant
+          </.button>
+        </:footer>
+      </.modal>
     </Layouts.app>
     """
+  end
+
+  defp console_url, do: PublicUrl.of(:sca_web, ScaWeb.Endpoint)
+
+  defp onboarding_form do
+    to_form(%{"name" => "", "owner_email" => "", "owner_name" => ""}, as: :tenant)
   end
 
   defp webhook(%{settings: %{webhook_url: url}}) when is_binary(url) and url != "",

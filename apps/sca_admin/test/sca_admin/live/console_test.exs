@@ -8,12 +8,19 @@ defmodule ScaAdmin.ConsoleTest do
   alias Sca.Actions
   alias Sca.Repos.AdminRepo
   alias Sca.Repos.TenantRepo
+  alias Sca.Repos.UserRepo
   alias ScaAdmin.Fixtures
 
   setup %{conn: conn} do
     %{admin: admin} = Fixtures.staff()
 
     %{conn: Fixtures.log_in(conn, admin), admin: admin}
+  end
+
+  defp shown_password(html) do
+    [_match, password] = Regex.run(~r/id="owner-password"[^>]*>\s*([^<\s]+)/, html)
+
+    password
   end
 
   describe "tenants" do
@@ -25,6 +32,46 @@ defmodule ScaAdmin.ConsoleTest do
       assert html =~ "Northstar Payments"
       assert html =~ tenant.public_id
       assert html =~ ~s(href="/tenants/#{tenant.public_id}")
+    end
+
+    test "onboards a merchant and hands over the owner's one-time password", ctx do
+      {:ok, live, _html} = live(ctx.conn, ~p"/tenants")
+
+      live |> element("button", "New merchant") |> render_click()
+
+      html =
+        live
+        |> form("#tenant-form",
+          tenant: %{name: "Acme Bank", owner_email: "ops@acme.example.com"}
+        )
+        |> render_submit()
+
+      assert [tenant] = Enum.filter(TenantRepo.list_all(), &(&1.name == "Acme Bank"))
+      assert {:ok, owner} = UserRepo.get_by_email(tenant, "ops@acme.example.com")
+      assert owner.role == :owner
+
+      # Everything the merchant needs to sign in, including the one copy of the
+      # password that will ever exist.
+      assert html =~ tenant.public_id
+      assert html =~ "ops@acme.example.com"
+      assert html =~ "Merchant id"
+      assert html =~ "Console"
+
+      assert Bcrypt.verify_pass(shown_password(html), owner.password_hash)
+    end
+
+    test "a merchant without a name is refused in place", ctx do
+      {:ok, live, _html} = live(ctx.conn, ~p"/tenants")
+
+      live |> element("button", "New merchant") |> render_click()
+
+      html =
+        live
+        |> form("#tenant-form", tenant: %{name: "", owner_email: "ops@acme.example.com"})
+        |> render_submit()
+
+      assert html =~ "can&#39;t be blank"
+      refute html =~ "Merchant id"
     end
 
     test "a merchant's screen shows configuration without their signing key", ctx do
