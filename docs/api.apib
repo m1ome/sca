@@ -259,15 +259,15 @@ the retry key here is the `Idempotency-Key` header instead.
             {
               "activated_at": null,
               "activation": {
-                "code": "8dUMmYRTUaspcs-veVud0b37j4JQbhvv",
-                "connect_url": "https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a",
-                "expires_at": "2026-08-20T21:22:35.990046Z",
-                "nonce": "mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8",
-                "qr_payload": "{\"connect_token\":\"8dUMmYRTUaspcs-veVud0b37j4JQbhvv\",\"connect_url\":\"https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a\",\"nonce\":\"mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8\",\"type\":\"sca-proto-enroll\"}"
+                "code": "H9sST9_KfauS9nW6vXAKH3AAfKKyEZhv",
+                "connect_url": "https://api.sca.example.com/t/30ac354d-af0d-4db0-8358-1231ddd1fbc2",
+                "expires_at": "2026-08-20T21:40:05.368168Z",
+                "nonce": "1RyDvEcd7do8xlhIHWzQP0LvPGQff42F",
+                "qr_payload": "{\"connect_token\":\"H9sST9_KfauS9nW6vXAKH3AAfKKyEZhv\",\"connect_url\":\"https://api.sca.example.com/t/30ac354d-af0d-4db0-8358-1231ddd1fbc2\",\"nonce\":\"1RyDvEcd7do8xlhIHWzQP0LvPGQff42F\",\"type\":\"sca-proto-enroll\"}"
               },
               "attested": false,
               "external_id": "customer-4471",
-              "id": "c7a8ee14-c16a-4c16-804c-00aaf9b8b708",
+              "id": "66afcc21-72fa-42e4-a392-9c521030ecb7",
               "last_seen_at": null,
               "name": "Dana's iPhone",
               "push_platform": null,
@@ -275,7 +275,7 @@ the retry key here is the `Idempotency-Key` header instead.
               "status": "pending"
             }
 
-+ Request The same call again, with the same Idempotency-Key (application/json)
++ Request The same call again, same key (application/json)
 
     + Headers
 
@@ -296,15 +296,15 @@ the retry key here is the `Idempotency-Key` header instead.
             {
               "activated_at": null,
               "activation": {
-                "code": "8dUMmYRTUaspcs-veVud0b37j4JQbhvv",
-                "connect_url": "https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a",
-                "expires_at": "2026-08-20T21:22:35.990046Z",
-                "nonce": "mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8",
-                "qr_payload": "{\"connect_token\":\"8dUMmYRTUaspcs-veVud0b37j4JQbhvv\",\"connect_url\":\"https://api.sca.example.com/t/de6fb2c5-93c1-4905-8227-37825f418d5a\",\"nonce\":\"mq59UN0DptFN8jXmF5AOCIMJhy3SE4c8\",\"type\":\"sca-proto-enroll\"}"
+                "code": "H9sST9_KfauS9nW6vXAKH3AAfKKyEZhv",
+                "connect_url": "https://api.sca.example.com/t/30ac354d-af0d-4db0-8358-1231ddd1fbc2",
+                "expires_at": "2026-08-20T21:40:05.368168Z",
+                "nonce": "1RyDvEcd7do8xlhIHWzQP0LvPGQff42F",
+                "qr_payload": "{\"connect_token\":\"H9sST9_KfauS9nW6vXAKH3AAfKKyEZhv\",\"connect_url\":\"https://api.sca.example.com/t/30ac354d-af0d-4db0-8358-1231ddd1fbc2\",\"nonce\":\"1RyDvEcd7do8xlhIHWzQP0LvPGQff42F\",\"type\":\"sca-proto-enroll\"}"
               },
               "attested": false,
               "external_id": "customer-4471",
-              "id": "c7a8ee14-c16a-4c16-804c-00aaf9b8b708",
+              "id": "66afcc21-72fa-42e4-a392-9c521030ecb7",
               "last_seen_at": null,
               "name": "Dana's iPhone",
               "push_platform": null,
@@ -362,10 +362,10 @@ default and 100 at most.
             {
               "data": [
                 {
-                  "activated_at": "2026-08-20T21:07:34.196369Z",
+                  "activated_at": "2026-08-20T21:25:05.758814Z",
                   "attested": false,
                   "external_id": "customer-4471",
-                  "id": "f60e9013-58d2-4a0a-a247-b4e16d5ecd6a",
+                  "id": "b19ad051-ea12-4864-89f2-ba9d203aed50",
                   "last_seen_at": null,
                   "name": "Dana's iPhone",
                   "push_platform": "ios",
@@ -404,7 +404,7 @@ Takes the binding's uuid or your own `external_id` — whichever you kept.
 A device belonging to another merchant is `404`, not `403`.
 
 + Parameters
-    + id: `d8c1cb7f-ef98-47d4-8592-ff7246ec7792` (string, required)
+    + id: `93e21946-f1c5-49d2-8113-99724ac3573b` (string, required)
 
 + Request By its id
 
@@ -417,10 +417,10 @@ A device belonging to another merchant is `404`, not `403`.
     + Body
 
             {
-              "activated_at": "2026-08-20T21:07:35.374781Z",
+              "activated_at": "2026-08-20T21:25:05.560907Z",
               "attested": false,
               "external_id": "customer-4471",
-              "id": "d8c1cb7f-ef98-47d4-8592-ff7246ec7792",
+              "id": "93e21946-f1c5-49d2-8113-99724ac3573b",
               "last_seen_at": null,
               "name": "Dana's iPhone",
               "push_platform": "ios",
@@ -452,7 +452,7 @@ Final: nothing can be asked of the device again and the app stops
 working on the next call. The person enrols anew to get a new one.
 
 + Parameters
-    + id: `76bf42e8-5ad7-49d7-baf3-56e38af2631f` (string, required)
+    + id: `c9f5f18a-02dc-47df-9d86-ca3317110916` (string, required)
 
 + Request The phone is gone
 
@@ -465,14 +465,14 @@ working on the next call. The person enrols anew to get a new one.
     + Body
 
             {
-              "activated_at": "2026-08-20T21:07:36.392678Z",
+              "activated_at": "2026-08-20T21:25:06.135673Z",
               "attested": false,
               "external_id": "customer-4471",
-              "id": "76bf42e8-5ad7-49d7-baf3-56e38af2631f",
+              "id": "c9f5f18a-02dc-47df-9d86-ca3317110916",
               "last_seen_at": null,
               "name": "Dana's iPhone",
               "push_platform": "ios",
-              "revoked_at": "2026-08-20T21:07:36.396757Z",
+              "revoked_at": "2026-08-20T21:25:06.138835Z",
               "status": "revoked"
             }
 
@@ -501,7 +501,7 @@ the console.
     + Body
 
             {
-              "binding": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+              "binding": "ae83173e-7b9a-40e1-90d7-2c4eb4e621da",
               "description": "Transfer to ACME Ltd",
               "external_id": "order-4471",
               "params": {
@@ -519,22 +519,22 @@ the console.
 
             {
               "binding": {
-                "activated_at": "2026-08-20T21:07:35.654507Z",
+                "activated_at": "2026-08-20T21:25:06.524314Z",
                 "attested": false,
                 "external_id": "customer-4471",
-                "id": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+                "id": "ae83173e-7b9a-40e1-90d7-2c4eb4e621da",
                 "last_seen_at": null,
                 "name": "Dana's iPhone",
                 "push_platform": "ios",
                 "revoked_at": null,
                 "status": "active"
               },
-              "created_at": "2026-08-20T21:07:35.696832Z",
+              "created_at": "2026-08-20T21:25:06.531322Z",
               "decided_at": null,
               "description": "Transfer to ACME Ltd",
-              "expires_at": "2026-08-20T21:12:35.696701Z",
+              "expires_at": "2026-08-20T21:30:06.531278Z",
               "external_id": "order-4471",
-              "id": "bec06904-9cb8-400f-82d6-c12964c328ac",
+              "id": "69d7e0ab-512c-48a6-b194-4c9b61ad7125",
               "params": {
                 "amount": "149.90",
                 "beneficiary": "ACME Ltd",
@@ -549,7 +549,7 @@ the console.
               "type": "payment"
             }
 
-+ Request The same reference again: the first card, not a second one (application/json)
++ Request The same reference again (application/json)
 
     + Headers
 
@@ -558,7 +558,7 @@ the console.
     + Body
 
             {
-              "binding": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+              "binding": "ae83173e-7b9a-40e1-90d7-2c4eb4e621da",
               "description": "Transfer to ACME Ltd",
               "external_id": "order-4471",
               "params": {
@@ -576,22 +576,22 @@ the console.
 
             {
               "binding": {
-                "activated_at": "2026-08-20T21:07:35.654507Z",
+                "activated_at": "2026-08-20T21:25:06.524314Z",
                 "attested": false,
                 "external_id": "customer-4471",
-                "id": "1647e0dd-dd0f-4f92-86f1-20a8398f2b1a",
+                "id": "ae83173e-7b9a-40e1-90d7-2c4eb4e621da",
                 "last_seen_at": null,
                 "name": "Dana's iPhone",
                 "push_platform": "ios",
                 "revoked_at": null,
                 "status": "active"
               },
-              "created_at": "2026-08-20T21:07:35.696832Z",
+              "created_at": "2026-08-20T21:25:06.531322Z",
               "decided_at": null,
               "description": "Transfer to ACME Ltd",
-              "expires_at": "2026-08-20T21:12:35.696701Z",
+              "expires_at": "2026-08-20T21:30:06.531278Z",
               "external_id": "order-4471",
-              "id": "bec06904-9cb8-400f-82d6-c12964c328ac",
+              "id": "69d7e0ab-512c-48a6-b194-4c9b61ad7125",
               "params": {
                 "amount": "149.90",
                 "beneficiary": "ACME Ltd",
@@ -651,7 +651,7 @@ the console.
     + Body
 
             {
-              "binding": "42b4eb2d-f03a-4217-bda8-f321e52e24d6",
+              "binding": "9cdcdb68-21a9-4581-bf38-ebf878a65aa1",
               "description": "Transfer to ACME Ltd",
               "params": {
                 "amount": "149.90",
@@ -695,22 +695,22 @@ Your approvals, newest first, each with the device it was raised on.
               "data": [
                 {
                   "binding": {
-                    "activated_at": "2026-08-20T21:07:35.123081Z",
+                    "activated_at": "2026-08-20T21:25:05.105547Z",
                     "attested": false,
                     "external_id": "customer-4471",
-                    "id": "814467ef-2ebb-4200-8438-cb6f5aeda445",
+                    "id": "10d02d01-c925-4338-9ebe-b549924eedbe",
                     "last_seen_at": null,
                     "name": "Dana's iPhone",
                     "push_platform": "ios",
                     "revoked_at": null,
                     "status": "active"
                   },
-                  "created_at": "2026-08-20T21:07:35.128589Z",
+                  "created_at": "2026-08-20T21:25:05.116393Z",
                   "decided_at": null,
                   "description": "Transfer to ACME Ltd",
-                  "expires_at": "2026-08-20T21:12:35.128441Z",
+                  "expires_at": "2026-08-20T21:30:05.112987Z",
                   "external_id": "order-4471",
-                  "id": "a2e28c9b-5adf-49da-acb0-658856354b91",
+                  "id": "bb4ae327-6656-419a-bfa7-9be6e4d639e5",
                   "params": {
                     "amount": "149.90",
                     "beneficiary": "ACME Ltd",
@@ -742,7 +742,7 @@ Once it is answered, the approval carries the evidence: `signature`,
 `payload_hash`, the hash of the params it covers.
 
 + Parameters
-    + id: `7bf994ae-9331-4f0b-ac3c-f4b66a664276` (string, required)
+    + id: `cc19204c-f407-4d2d-90c9-bf75bcffa504` (string, required)
 
 + Request One the user confirmed
 
@@ -756,31 +756,31 @@ Once it is answered, the approval carries the evidence: `signature`,
 
             {
               "binding": {
-                "activated_at": "2026-08-20T21:07:36.190388Z",
+                "activated_at": "2026-08-20T21:25:06.328856Z",
                 "attested": false,
                 "external_id": "customer-4471",
-                "id": "6bea6b94-692b-4e17-ab75-0746aabcaa51",
+                "id": "6a159d54-9410-45f7-9684-fbfe1cd157c6",
                 "last_seen_at": null,
                 "name": "Dana's iPhone",
                 "push_platform": "ios",
                 "revoked_at": null,
                 "status": "active"
               },
-              "created_at": "2026-08-20T21:07:36.192601Z",
-              "decided_at": "2026-08-20T21:07:36.194811Z",
+              "created_at": "2026-08-20T21:25:06.330724Z",
+              "decided_at": "2026-08-20T21:25:06.332721Z",
               "description": "Transfer to ACME Ltd",
-              "expires_at": "2026-08-20T21:12:36.192554Z",
+              "expires_at": "2026-08-20T21:30:06.330681Z",
               "external_id": "order-4471",
-              "id": "7bf994ae-9331-4f0b-ac3c-f4b66a664276",
+              "id": "cc19204c-f407-4d2d-90c9-bf75bcffa504",
               "params": {
                 "amount": "149.90",
                 "beneficiary": "ACME Ltd",
                 "currency": "EUR"
               },
               "payload_hash": "a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
-              "signature": "MEUCIQDnd6YkHy+Q0VAmsgep+o6AOlu44U+JpX55lDFJgJpXcwIgZ7jrOHxvaMg5wHGEN9UmH/A51qVWSaj5DbSihcMmJBk=",
+              "signature": "MEUCIQDojnVshOrr26LJCp4M2hEyT05dO+PoLeSvdtFf8hA80wIgQrcoWXSolJvwjbgKVuaRqmMY2c7mZPNw0Sh2l5+R3os=",
               "signature_algorithm": "ecdsa-p256",
-              "signed_payload": "sca-service:v1:7bf994ae-9331-4f0b-ac3c-f4b66a664276:QeqoDirHe4VW5iPa7cEweA:confirm:a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
+              "signed_payload": "sca-service:v1:cc19204c-f407-4d2d-90c9-bf75bcffa504:TzDgru-nm6DdnkqoMnndEQ:confirm:a77fbcd6ea3bdb9122624b96032e3df2ea993492fa96bc0b06b58fe914a6a5e9",
               "status": "confirmed",
               "title": "Payment confirmation",
               "type": "payment"
@@ -792,7 +792,7 @@ Closes a card the user has not answered. One that was already answered,
 cancelled or expired is `409 not_pending`.
 
 + Parameters
-    + id: `b323da78-b17c-45ba-86b0-1e6db67f1dce` (string, required)
+    + id: `6b0c4e31-5134-4b3f-9041-ff2c98c1120f` (string, required)
 
 + Request Nobody had answered it yet
 
@@ -806,22 +806,22 @@ cancelled or expired is `409 not_pending`.
 
             {
               "binding": {
-                "activated_at": "2026-08-20T21:07:34.722482Z",
+                "activated_at": "2026-08-20T21:25:06.727074Z",
                 "attested": false,
                 "external_id": "customer-4471",
-                "id": "f3be5030-cba9-44dd-88ce-f992018a9775",
+                "id": "14549ba5-2d81-4e43-ad47-de94eae77bbc",
                 "last_seen_at": null,
                 "name": "Dana's iPhone",
                 "push_platform": "ios",
                 "revoked_at": null,
                 "status": "active"
               },
-              "created_at": "2026-08-20T21:07:34.807162Z",
-              "decided_at": "2026-08-20T21:07:34.839627Z",
+              "created_at": "2026-08-20T21:25:06.728782Z",
+              "decided_at": "2026-08-20T21:25:06.731815Z",
               "description": "Transfer to ACME Ltd",
-              "expires_at": "2026-08-20T21:12:34.755844Z",
+              "expires_at": "2026-08-20T21:30:06.728745Z",
               "external_id": "order-4471",
-              "id": "b323da78-b17c-45ba-86b0-1e6db67f1dce",
+              "id": "6b0c4e31-5134-4b3f-9041-ff2c98c1120f",
               "params": {
                 "amount": "149.90",
                 "beneficiary": "ACME Ltd",

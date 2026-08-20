@@ -73,6 +73,9 @@ fails a test instead of quietly becoming a lie.
 mix api.docs     # runs that test with DOC=1, then renders with aglio
 ```
 
+The rendered page wears the console's own palette — `docs/theme.less`, which
+overrides aglio's theme variables with the tokens from `sca_ui`.
+
 Both outputs are committed: the merchant console serves the rendered page at
 [/docs](http://localhost:4000/docs) — there is a link to it in the console
 header — and the release image has no Node in it. Rendering needs `npx` on the

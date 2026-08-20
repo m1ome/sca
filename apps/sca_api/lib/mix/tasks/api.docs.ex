@@ -9,8 +9,8 @@ defmodule Mix.Tasks.Api.Docs do
   `ScaApi.ApiDocsTest` runs with `DOC=1`, which is what makes Bureaucrat write
   `docs/api.apib` out of the calls that test really made — prose from
   `docs/api.intro.md` above them. Aglio then renders the blueprint into
-  `apps/sca_web/priv/docs/api.html`, which the merchant console serves at
-  `/docs`.
+  `apps/sca_web/priv/docs/api.html`, wearing the console's own palette
+  (`docs/theme.less`), which the merchant console serves at `/docs`.
 
   Both outputs are committed: the release image has no Node in it, and the
   console has to be able to serve the page.
@@ -23,6 +23,7 @@ defmodule Mix.Tasks.Api.Docs do
 
   @root Path.expand("../../../../..", __DIR__)
   @blueprint "docs/api.apib"
+  @theme "docs/theme.less"
   @html "apps/sca_web/priv/docs/api.html"
   @aglio "aglio@2.3.0"
 
@@ -49,7 +50,7 @@ defmodule Mix.Tasks.Api.Docs do
 
     cmd(
       "npx",
-      ["--yes", @aglio, "--theme-template", "triple", "-i", @blueprint, "-o", @html],
+      ["--yes", @aglio, "--theme-variables", @theme, "-i", @blueprint, "-o", @html],
       cd: @root
     )
   end

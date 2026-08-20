@@ -75,7 +75,7 @@ defmodule ScaApi.ApiDocsTest do
       |> doc(
         group_title: @merchant,
         title: "Enrol a device",
-        description: "The same call again, with the same Idempotency-Key"
+        description: "The same call again, same key"
       )
       |> json_response(200)
 
@@ -196,7 +196,7 @@ defmodule ScaApi.ApiDocsTest do
       |> doc(
         group_title: @merchant,
         title: "Ask for an approval",
-        description: "The same reference again: the first card, not a second one"
+        description: "The same reference again"
       )
       |> json_response(200)
 

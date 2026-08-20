@@ -65,7 +65,9 @@ defmodule Sca.Umbrella.MixProject do
       # The API documentation, rebuilt from the tests that make its examples.
       # The task itself lives in `sca_api`, which is what a task from an
       # umbrella's child needs to be reachable from the root.
-      "api.docs": ["do --app sca_api api.docs"],
+      # `compile` first: the task itself lives in `sca_api`, and Mix would
+      # happily run yesterday's copy of it out of the build directory.
+      "api.docs": ["compile", "do --app sca_api api.docs"],
       # Dialyzer is minutes, not seconds — kept out of `precommit` on purpose.
       typecheck: ["dialyzer"],
       precommit: [

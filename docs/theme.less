@@ -1,0 +1,55 @@
+// The merchant console's palette, so the documentation opened from its header
+// looks like the same product. Only overrides: aglio loads its own
+// `variables-default.less` first and this file after it.
+//
+// No webfont: Inter when the reader has it, the system sans otherwise. LESS
+// drops a second `@import url()`, and a document served from our own console
+// has no business fetching a font from Google.
+
+@font-size: 15px;
+@border-radius: 8px;
+
+@base-font: 400 15px ~"/" 1.6 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+@title-font: 600 34px 'Inter', ui-sans-serif, system-ui, sans-serif;
+@code-font: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+@text-color: #111a2e;
+@link-color: #155cf2;
+
+@nav-background-color: #f7f8fa;
+@nav-border-color: #e3e8ef;
+
+@group-title-background-color: #f7f8fa;
+@group-border-color: #e3e8ef;
+
+@table-border-color: #e3e8ef;
+@table-row-background-color: #f7f8fa;
+
+@inline-code-background-color: #eef4ff;
+@inline-code-text-color: #104bd0;
+@code-block-background-color: #f7f8fa;
+@code-block-border-color: #e3e8ef;
+@title-code-background-color: rgba(255, 255, 255, 0.75);
+@title-code-border-color: transparent;
+
+// Reads in the brand blue, writes in green — the same two colours the console
+// uses for a link and for a confirmed approval.
+@get-color: white;
+@get-background-color: #155cf2;
+@get-badge-text-color: white;
+@get-border-color: @get-background-color;
+
+@post-color: white;
+@post-background-color: #0e9f6e;
+@post-badge-text-color: white;
+@post-border-color: @post-background-color;
+
+@put-color: white;
+@put-background-color: #d97706;
+@put-badge-text-color: white;
+@put-border-color: @put-background-color;
+
+@delete-color: white;
+@delete-background-color: #dc2626;
+@delete-badge-text-color: white;
+@delete-border-color: @delete-background-color;
