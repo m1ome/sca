@@ -32,9 +32,10 @@ This is a web application written using the Phoenix web framework.
 - TLS is terminated in front of the application; the endpoints speak plain HTTP
   and only their `:url` says `https`. No certificates in config, no `force_ssl`.
 - Production is the `sca` release built by the `Dockerfile`; migrations run as
-  their own step through `/app/bin/migrate` (`Sca.Release.migrate/0`). There is
+  their own step through `/app/bin/setup` (`Sca.Release.setup/0`: migrations plus
+  the first staff account) or `/app/bin/migrate` for the schema alone. There is
   no `mix` in the image, so anything that has to be runnable in production lives
-  in `Sca.Release`.
+  in `Sca.Release` and gets a wrapper in `rel/overlays/bin`.
 - Schemas are declared with `use Sca.Schema, public_id: "TNT"`: a UUID key plus a
   human-readable `public_id` (`TNT-1`, `BIN-42`) created by the migration through
   `Sca.Repo.Migration.add_public_id/2`. Parsing is `Sca.PublicId`.

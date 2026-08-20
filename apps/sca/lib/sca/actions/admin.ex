@@ -16,27 +16,39 @@ defmodule Sca.Actions.Admin do
   alias Sca.Repos.AdminRepo
 
   @doc """
-  Creates a staff account with a generated password.
+  Creates a staff account, generating a password unless one was given.
 
-  The password is returned once and never stored — handing it over is the
-  caller's business, the same way it works for a merchant's team.
+  The returned password is `nil` when the caller supplied their own, and
+  otherwise the only copy — handing it over is the caller's business.
   """
   @spec create(map()) ::
-          {:ok, %{admin: Models.Admin.t(), password: String.t()}} | {:error, Ecto.Changeset.t()}
+          {:ok, %{admin: Models.Admin.t(), password: String.t() | nil}}
+          | {:error, Ecto.Changeset.t()}
   def create(attrs) do
-    password = Crypto.random_token(12)
+    attrs = stringify(attrs)
+    {password, generated} = password_for(attrs)
 
-    case attrs |> stringify() |> Map.put("password", password) |> AdminRepo.create() do
+    case attrs |> Map.put("password", password) |> AdminRepo.create() do
       {:ok, admin} ->
         Logger.info("[actions.admin.create] #{admin.public_id} (#{admin.role})")
 
-        {:ok, %{admin: admin, password: password}}
+        {:ok, %{admin: admin, password: generated}}
 
       {:error, error} ->
         Logger.warning("[actions.admin.create] rejected: #{reason(error)}")
 
         {:error, error}
     end
+  end
+
+  defp password_for(%{"password" => password}) when is_binary(password) and password != "" do
+    {password, nil}
+  end
+
+  defp password_for(_attrs) do
+    generated = Crypto.random_token(12)
+
+    {generated, generated}
   end
 
   @doc "Changes what a staff member may do."

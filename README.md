@@ -67,8 +67,11 @@ docker run -e DATABASE_URL=… -e SECRET_KEY_BASE=… -e PHX_HOST=sca.example.co
   -p 4000-4002:4000-4002 sca
 ```
 
-Migrations are a deploy step of their own (`/app/bin/migrate`), not something
-the container does on boot. The release starts the endpoints itself.
+Migrations are a deploy step of their own, not something the container does on
+boot. `/app/bin/setup` runs them and then creates the first staff account from
+`ADMIN_EMAIL` and `ADMIN_PASSWORD` — both halves do nothing when there is
+nothing to do, so it is safe as a pre-deploy command on every deploy.
+`/app/bin/migrate` is the schema alone. The release starts the endpoints itself.
 
 | Variable | What it does |
 |---|---|
@@ -80,6 +83,7 @@ the container does on boot. The release starts the endpoints itself.
 | `WEB_PORT`, `API_PORT`, `ADMIN_PORT` | default 4000, 4001, 4002 |
 | `FCM_CREDENTIALS` | Firebase service account JSON, base64; without it push is off |
 | `FCM_PROJECT_ID` | when the project differs from the one in the key |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | the first staff account, created once by `/app/bin/setup` |
 | `SENTRY_DSN` | without it crash reporting is inert |
 
 ## Not done yet
