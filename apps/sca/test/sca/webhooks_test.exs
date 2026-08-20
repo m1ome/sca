@@ -45,7 +45,7 @@ defmodule Sca.WebhooksTest do
       assert delivery.resource_id == device.binding.id
       assert delivery.tenant_id == tenant.id
       assert delivery.url == tenant.settings.webhook_url
-      assert delivery.payload["binding"]["id"] == device.binding.public_id
+      assert delivery.payload["binding"]["id"] == device.binding.id
       assert_enqueued(worker: WebhookDeliveryWorker, args: %{delivery_id: delivery.id})
     end
 
@@ -54,8 +54,8 @@ defmodule Sca.WebhooksTest do
 
       assert {:ok, delivery} = Webhooks.emit("request.expired", request)
 
-      assert delivery.payload["request"]["id"] == request.public_id
-      assert delivery.payload["binding"]["id"] == ctx.device.binding.public_id
+      assert delivery.payload["request"]["id"] == request.id
+      assert delivery.payload["binding"]["id"] == ctx.device.binding.id
     end
 
     test "a tenant with no endpoint is a normal answer, not an error" do
@@ -102,7 +102,7 @@ defmodule Sca.WebhooksTest do
 
       assert confirmed.payload["request"]["signature"]
       assert confirmed.payload["request"]["signed_payload"]
-      assert confirmed.payload["binding"]["id"] == ctx.device.binding.public_id
+      assert confirmed.payload["binding"]["id"] == ctx.device.binding.id
     end
 
     test "expiry and cancellation are announced too", ctx do
@@ -362,7 +362,7 @@ defmodule Sca.WebhooksTest do
       decoded = Jason.decode!(body)
 
       assert decoded["event"] == "request.created"
-      assert decoded["id"] == delivery.public_id
+      assert decoded["id"] == delivery.id
       assert decoded["data"] == nil
       assert length(String.split(decoded["encrypted"], ".")) == 5
 

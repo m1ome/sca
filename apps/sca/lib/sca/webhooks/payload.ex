@@ -4,8 +4,9 @@ defmodule Sca.Webhooks.Payload do
 
   Deliberately not "the schema as JSON": the wire shape is a contract with
   merchant code, so it is written out field by field here, and nothing added to
-  a schema leaks into it by accident. Identifiers are the human-readable ones
-  plus the merchant's own `external_id` — internal UUIDs are ours.
+  a schema leaks into it by accident. Identifiers are the same uuids the API
+  answers with, so a merchant can match a webhook to the call that caused it,
+  plus their own `external_id`.
 
   Secrets never appear: no access tokens, no enrollment tokens, no public key.
   """
@@ -37,7 +38,7 @@ defmodule Sca.Webhooks.Payload do
 
   defp request_view(%Request{} = request) do
     %{
-      "id" => request.public_id,
+      "id" => request.id,
       "external_id" => request.external_id,
       "type" => to_string(request.type),
       "status" => to_string(request.status),
@@ -57,7 +58,7 @@ defmodule Sca.Webhooks.Payload do
 
   defp binding_view(%Binding{} = binding) do
     %{
-      "id" => binding.public_id,
+      "id" => binding.id,
       "external_id" => binding.external_id,
       "name" => binding.name,
       "status" => to_string(binding.status),

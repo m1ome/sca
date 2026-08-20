@@ -7,6 +7,7 @@ defmodule ScaApi.MerchantApiTest do
   alias Sca.Repos.ApiTokenRepo
   alias Sca.Repos.BindingRepo
   alias Sca.Repos.RequestRepo
+  alias Sca.Repos.WebhookDeliveryRepo
   alias ScaApi.Fixtures
 
   setup %{conn: conn} do
@@ -104,6 +105,32 @@ defmodule ScaApi.MerchantApiTest do
 
       assert %{"error" => %{"code" => "not_found"}} = json_response(conn, 404)
     end
+  end
+
+  test "a webhook names the same thing the API just answered with", ctx do
+    {:ok, tenant} =
+      Actions.Tenant.update_settings(ctx.tenant, %{webhook_url: "https://merchant.example.com/x"})
+
+    device = Fixtures.device(tenant)
+
+    body = %{
+      binding: device.binding.id,
+      type: "login",
+      title: "Sign in",
+      params: %{ip: "1.2.3.4"}
+    }
+
+    assert %{"id" => id} =
+             ctx.conn |> post(~p"/api/merchant/v1/approvals", body) |> json_response(201)
+
+    # Otherwise a merchant cannot tell which call a webhook is about.
+    delivery =
+      tenant
+      |> WebhookDeliveryRepo.list_by_tenant()
+      |> Enum.find(&(&1.event == "request.created"))
+
+    assert delivery.payload["request"]["id"] == id
+    assert delivery.payload["binding"]["id"] == device.binding.id
   end
 
   describe "idempotency" do

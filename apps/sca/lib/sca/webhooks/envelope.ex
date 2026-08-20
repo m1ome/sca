@@ -37,7 +37,7 @@ defmodule Sca.Webhooks.Envelope do
         Jason.encode!(
           Map.merge(
             %{
-              "id" => delivery.public_id,
+              "id" => delivery.id,
               "event" => delivery.event,
               "created_at" => Timex.format!(delivery.inserted_at, "{RFC3339z}")
             },
@@ -78,7 +78,7 @@ defmodule Sca.Webhooks.Envelope do
       {"content-type", "application/json"},
       {"user-agent", "sca-webhooks/1"},
       {"x-sca-event", delivery.event},
-      {"x-sca-delivery", delivery.public_id}
+      {"x-sca-delivery", delivery.id}
     ]
 
     case settings.webhook_secret do
