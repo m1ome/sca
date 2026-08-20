@@ -95,6 +95,9 @@ defmodule ScaAdmin.TenantsLive do
         <.list_header title="Merchants" description={"#{@meta.total_count} in total"} />
 
         <.table id="tenants" rows={@streams.tenants} stream>
+          <:col :let={tenant} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{tenant.public_id}</span>
+          </:col>
           <:col :let={tenant} label="Merchant">
             <.link
               navigate={~p"/tenants/#{tenant.public_id}"}
@@ -103,9 +106,6 @@ defmodule ScaAdmin.TenantsLive do
               {tenant.name}
             </.link>
             <p class="truncate text-xs text-muted">{tenant.public_id}</p>
-          </:col>
-          <:col :let={tenant} label="ID" width="w-28" hide_below="sm">
-            <span class="font-mono text-xs text-muted">{tenant.public_id}</span>
           </:col>
           <:col :let={tenant} label="Webhook" width="w-44" hide_below="md">
             <span class="text-muted">{webhook(tenant)}</span>

@@ -124,10 +124,13 @@ defmodule ScaWeb.WebhooksLive do
         <.list_header title="Deliveries" description={"#{@meta.total_count} in total"} />
 
         <.table id="deliveries" rows={@streams.deliveries} stream>
+          <:col :let={delivery} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{delivery.public_id}</span>
+          </:col>
           <:col :let={delivery} label="Event">
             <p class="truncate font-medium">{delivery.event}</p>
             <p class="truncate text-xs text-muted">
-              {delivery.public_id}<span :if={delivery.test}> · test event</span>
+              {delivery.url}<span :if={delivery.test}> · test event</span>
             </p>
           </:col>
           <:col :let={delivery} label="Answer" width="w-40" hide_below="sm">
@@ -145,7 +148,12 @@ defmodule ScaWeb.WebhooksLive do
             </span>
           </:col>
           <:action :let={delivery}>
-            <.button variant="ghost" phx-click="inspect" phx-value-id={delivery.public_id}>
+            <.button
+              variant="ghost"
+              size="small"
+              phx-click="inspect"
+              phx-value-id={delivery.public_id}
+            >
               Open
             </.button>
           </:action>

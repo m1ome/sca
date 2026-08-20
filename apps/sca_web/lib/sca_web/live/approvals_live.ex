@@ -79,12 +79,12 @@ defmodule ScaWeb.ApprovalsLive do
         />
 
         <.table id="approvals" rows={@streams.requests} stream>
+          <:col :let={request} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{request.public_id}</span>
+          </:col>
           <:col :let={request} label="Request">
             <p class="truncate font-medium">{request.title}</p>
             <p class="truncate text-xs text-muted">{summary(request)}</p>
-          </:col>
-          <:col :let={request} label="ID" width="w-28" hide_below="sm">
-            <span class="font-mono text-xs text-muted">{request.public_id}</span>
           </:col>
           <:col :let={request} label="Type" width="w-28" hide_below="sm">
             <span class="text-muted">{String.capitalize(to_string(request.type))}</span>

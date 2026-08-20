@@ -232,6 +232,9 @@ defmodule ScaWeb.SettingsLive do
             </.list_header>
 
             <.table id="api-keys" rows={@api_tokens}>
+              <:col :let={key} label="ID" width="w-28" hide_below="sm">
+                <span class="font-mono text-xs text-muted">{key.public_id}</span>
+              </:col>
               <:col :let={key} label="Key">
                 <p class="truncate font-mono text-xs">{key.preview}</p>
                 <p class="truncate text-xs text-muted">{key_usage(key)}</p>
@@ -243,6 +246,7 @@ defmodule ScaWeb.SettingsLive do
                 <.button
                   :if={is_nil(key.revoked_at)}
                   variant="danger"
+                  size="small"
                   phx-click="confirm-revoke-key"
                   phx-value-id={key.public_id}
                 >
@@ -274,6 +278,9 @@ defmodule ScaWeb.SettingsLive do
             </.list_header>
 
             <.table id="deliveries" rows={@deliveries}>
+              <:col :let={delivery} label="ID" width="w-28" hide_below="sm">
+                <span class="font-mono text-xs text-muted">{delivery.public_id}</span>
+              </:col>
               <:col :let={delivery} label="Event">
                 <p class="truncate font-medium">{delivery.event}</p>
                 <p class="truncate text-xs text-muted">{response(delivery)}</p>

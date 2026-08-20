@@ -90,12 +90,12 @@ defmodule ScaWeb.BindingLive do
           />
 
           <.table id="binding-requests" rows={@requests}>
+            <:col :let={request} label="ID" width="w-28" hide_below="sm">
+              <span class="font-mono text-xs text-muted">{request.public_id}</span>
+            </:col>
             <:col :let={request} label="Request">
               <p class="truncate font-medium">{request.title}</p>
               <p class="truncate text-xs text-muted">{String.capitalize(to_string(request.type))}</p>
-            </:col>
-            <:col :let={request} label="ID" width="w-28" hide_below="sm">
-              <span class="font-mono text-xs text-muted">{request.public_id}</span>
             </:col>
             <:col :let={request} label="State" width="w-32">
               <.status value={request.status} />

@@ -80,12 +80,12 @@ defmodule ScaWeb.TeamLive do
         <.list_header title="Members" description={"#{@meta.total_count} in total"} />
 
         <.table id="members" rows={@streams.members} stream>
+          <:col :let={member} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{member.public_id}</span>
+          </:col>
           <:col :let={member} label="Member">
             <p class="truncate font-medium">{display_name(member)}</p>
             <p class="truncate text-xs text-muted">{member.email}</p>
-          </:col>
-          <:col :let={member} label="ID" width="w-28" hide_below="sm">
-            <span class="font-mono text-xs text-muted">{member.public_id}</span>
           </:col>
           <:col :let={member} label="Role" width="w-32" hide_below="sm">
             <span class="text-muted">{String.capitalize(to_string(member.role))}</span>

@@ -107,12 +107,12 @@ defmodule ScaWeb.BindingsLive do
         <.list_header title="Devices" description={"#{@meta.total_count} in total"} />
 
         <.table id="bindings" rows={@streams.bindings} stream>
+          <:col :let={binding} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{binding.public_id}</span>
+          </:col>
           <:col :let={binding} label="Device">
             <p class="truncate font-medium">{device_name(binding)}</p>
             <p class="truncate text-xs text-muted">{binding.external_id}</p>
-          </:col>
-          <:col :let={binding} label="ID" width="w-28" hide_below="sm">
-            <span class="font-mono text-xs text-muted">{binding.public_id}</span>
           </:col>
           <:col :let={binding} label="Platform" width="w-28" hide_below="sm">
             <span class="text-muted">{platform(binding)}</span>

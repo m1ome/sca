@@ -75,6 +75,9 @@ defmodule ScaAdmin.TeamLive do
         <.list_header title="Staff" description={"#{@meta.total_count} in total"} />
 
         <.table id="admins" rows={@streams.admins} stream>
+          <:col :let={admin} label="ID" width="w-28" hide_below="sm">
+            <span class="font-mono text-xs text-muted">{admin.public_id}</span>
+          </:col>
           <:col :let={admin} label="Person">
             <p class="truncate font-medium">{display_name(admin)}</p>
             <p class="truncate text-xs text-muted">{admin.email}</p>

@@ -16,10 +16,13 @@ defmodule ScaUi.Components do
 
   alias Phoenix.LiveView.JS
 
-  @primary "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
-  @secondary "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
-  @ghost "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
-  @danger "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600/30"
+  # Shape and colour here, height and padding in `size/1`: a button that carries
+  # both ends up overriding itself.
+  @base "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition focus-visible:outline-none focus-visible:ring-2"
+  @primary "bg-brand text-white shadow-sm hover:bg-brand-strong focus-visible:ring-brand/30"
+  @secondary "border border-line bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:ring-brand/20"
+  @ghost "text-slate-500 hover:bg-slate-50 hover:text-ink focus-visible:ring-brand/20"
+  @danger "bg-rose-600 text-white shadow-sm hover:bg-rose-700 focus-visible:ring-rose-600/30"
   @control "h-10 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-brand focus:ring-4 focus:ring-brand/10"
 
   @doc """
@@ -30,6 +33,7 @@ defmodule ScaUi.Components do
   suspending — and it belongs in the confirmation, not in the row that offers it.
   """
   attr(:variant, :string, default: "primary", values: ~w(primary secondary ghost danger))
+  attr(:size, :string, default: "default", values: ~w(default small))
   attr(:type, :string, default: nil)
   attr(:navigate, :string, default: nil)
   attr(:href, :string, default: nil)
@@ -39,7 +43,7 @@ defmodule ScaUi.Components do
 
   def button(%{navigate: navigate} = assigns) when is_binary(navigate) do
     ~H"""
-    <.link navigate={@navigate} class={[style(@variant), @class]} {@rest}>
+    <.link navigate={@navigate} class={[style(@variant), size(@size), @class]} {@rest}>
       {render_slot(@inner_block)}
     </.link>
     """
@@ -47,7 +51,7 @@ defmodule ScaUi.Components do
 
   def button(%{href: href} = assigns) when is_binary(href) do
     ~H"""
-    <.link href={@href} class={[style(@variant), @class]} {@rest}>
+    <.link href={@href} class={[style(@variant), size(@size), @class]} {@rest}>
       {render_slot(@inner_block)}
     </.link>
     """
@@ -55,16 +59,23 @@ defmodule ScaUi.Components do
 
   def button(assigns) do
     ~H"""
-    <button type={@type || "button"} class={[style(@variant), @class]} {@rest}>
+    <button type={@type || "button"} class={[style(@variant), size(@size), @class]} {@rest}>
       {render_slot(@inner_block)}
     </button>
     """
   end
 
-  defp style("primary"), do: @primary
-  defp style("secondary"), do: @secondary
-  defp style("ghost"), do: @ghost
-  defp style("danger"), do: @danger
+  defp style(variant), do: @base <> " " <> palette(variant)
+
+  defp palette("primary"), do: @primary
+  defp palette("secondary"), do: @secondary
+  defp palette("ghost"), do: @ghost
+  defp palette("danger"), do: @danger
+
+  # A table row is 56px tall, and a full-height button in one overflows its
+  # column.
+  defp size("small"), do: "h-8 px-3 text-xs"
+  defp size(_default), do: "h-10 px-4 text-sm"
 
   @doc """
   A labelled form control.
@@ -261,7 +272,7 @@ defmodule ScaUi.Components do
             >
               {col[:label]}
             </th>
-            <th :if={@action != []} scope="col" class="w-24 px-5 py-2.5">
+            <th :if={@action != []} scope="col" class="w-32 px-5 py-2.5">
               <span class="sr-only">Actions</span>
             </th>
           </tr>
@@ -280,7 +291,7 @@ defmodule ScaUi.Components do
             >
               {render_slot(col, row_record(row))}
             </td>
-            <td :if={@action != []} class="px-5 py-3 text-right align-middle">
+            <td :if={@action != []} class="whitespace-nowrap px-5 py-3 text-right align-middle">
               {render_slot(@action, row_record(row))}
             </td>
           </tr>
