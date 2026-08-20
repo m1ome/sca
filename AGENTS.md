@@ -102,6 +102,10 @@ This is a web application written using the Phoenix web framework.
   (`~/Downloads/enum8-design-system-package`): Tailwind 4 utilities and Heroicons
   outline. No daisyUI, no new CSS files, no private tokens — colours and sizes
   come from `@theme` in `app.css`.
+- Never build a class name at runtime (`"hidden #{breakpoint}:table-cell"`).
+  Tailwind writes its stylesheet by scanning the source for class names, so an
+  assembled one is never generated: the markup looks right, the page does not,
+  and nothing fails. Write each variant out and pick between them.
 - Primitives and the shell are shared, in `apps/sca_ui` (`ScaUi.Components`,
   `ScaUi.Shell`). A new primitive goes there rather than into one console: two
   copies of a design system drift apart quietly.

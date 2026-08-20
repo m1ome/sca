@@ -310,8 +310,13 @@ defmodule ScaUi.Components do
   defp cell_align("right"), do: "text-right"
   defp cell_align(_left), do: "text-left"
 
-  defp hidden_below(nil), do: nil
-  defp hidden_below(breakpoint), do: "hidden #{breakpoint}:table-cell"
+  # Written out rather than interpolated: Tailwind builds its stylesheet by
+  # scanning the source for class names, so one assembled at runtime is one it
+  # never generates — the column then carries `hidden` and nothing to undo it.
+  defp hidden_below("sm"), do: "hidden sm:table-cell"
+  defp hidden_below("md"), do: "hidden md:table-cell"
+  defp hidden_below("lg"), do: "hidden lg:table-cell"
+  defp hidden_below(_none), do: nil
 
   @doc """
   The link at the end of a table row.
