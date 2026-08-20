@@ -8,9 +8,12 @@ defmodule ScaApi.MerchantController do
 
   Resources are named by their UUID. Anything that creates one honours an
   `Idempotency-Key` header: a merchant whose request timed out cannot know what
-  happened, so sending it again must not raise a second card. The key is stored
-  on the entity and unique per merchant, so the database is what makes that
-  true rather than a promise made here.
+  happened, so sending it again must not raise a second card.
+
+  For an approval that key *is* `external_id` — the merchant's own reference,
+  already unique per tenant — and the header only fills it in when the body did
+  not. A binding needs a key of its own, because its `external_id` names a
+  person, and enrolling that person again is how a lost phone gets replaced.
   """
 
   use ScaApi, :controller
@@ -92,16 +95,16 @@ defmodule ScaApi.MerchantController do
 
   defp raise_approval(conn, binding, params) do
     tenant = conn.assigns.current_tenant
-    key = idempotency_key(conn)
+    reference = approval_reference(conn, params)
 
-    case existing(tenant, key, &RequestRepo.get_by_idempotency_key/2) do
+    case existing(tenant, reference, &RequestRepo.get_by_external_id/2) do
       {:ok, request} -> json(conn, JSON.approval(request, binding))
-      :none -> raise_new_approval(conn, binding, key, params)
+      :none -> raise_new_approval(conn, binding, reference, params)
     end
   end
 
-  defp raise_new_approval(conn, binding, key, params) do
-    attrs = params |> approval_attrs() |> Map.put("idempotency_key", key)
+  defp raise_new_approval(conn, binding, reference, params) do
+    attrs = params |> approval_attrs() |> Map.put("external_id", reference)
 
     case Actions.Request.create(binding, attrs) do
       {:ok, request} ->
@@ -111,12 +114,12 @@ defmodule ScaApi.MerchantController do
         error(conn, :conflict, "binding_not_active", "That device cannot answer requests.")
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        approval_refused(conn, binding, key, changeset)
+        approval_refused(conn, binding, reference, changeset)
     end
   end
 
-  defp approval_refused(conn, binding, key, changeset) do
-    case existing(conn.assigns.current_tenant, key, &RequestRepo.get_by_idempotency_key/2) do
+  defp approval_refused(conn, binding, reference, changeset) do
+    case existing(conn.assigns.current_tenant, reference, &RequestRepo.get_by_external_id/2) do
       {:ok, request} -> json(conn, JSON.approval(request, binding))
       :none -> invalid(conn, changeset)
     end
@@ -188,7 +191,6 @@ defmodule ScaApi.MerchantController do
       "title" => params["title"],
       "description" => params["description"] || "",
       "payload" => params["params"] || %{},
-      "external_id" => params["external_id"],
       "expires_at" => params["expires_at"]
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
@@ -203,6 +205,15 @@ defmodule ScaApi.MerchantController do
   # ours in their configuration. This endpoint is the one that knows it.
   defp enrollment(conn, binding) do
     JSON.enrollment(binding, conn.assigns.current_tenant, ScaApi.Endpoint.url())
+  end
+
+  # An approval is identified by the merchant's own reference; the header is
+  # how someone who does not use one still gets a retry-safe call.
+  defp approval_reference(conn, params) do
+    case params["external_id"] do
+      reference when is_binary(reference) and reference != "" -> reference
+      _absent -> idempotency_key(conn)
+    end
   end
 
   defp idempotency_key(conn) do

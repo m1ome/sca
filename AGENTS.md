@@ -136,11 +136,12 @@ This is a web application written using the Phoenix web framework.
   and for logs; a merchant matching a webhook against an API answer needs the
   same id in both. The one exception is the `/t/:tenant` prefix, which is an
   address people sometimes type.
-- Anything in the merchant API that creates something takes an
-  `Idempotency-Key`, stored on the entity itself and unique per tenant
-  (`bindings.idempotency_key`, `requests.idempotency_key`). A retry finds the
-  row the key already produced and answers with it — no second entity, and no
-  central bookkeeping to keep in step with the data.
+- Retry-safety in the merchant API is a unique column on the entity, not a
+  ledger beside it. For a request that column is `external_id` — the merchant's
+  own reference, which is already the same thing — and the `Idempotency-Key`
+  header only fills it in when the body did not. A binding has
+  `idempotency_key` of its own, because its `external_id` names a person and
+  enrolling that person again is how a lost phone is replaced.
 - Both authentications are plugs (`ScaApi.DeviceAuth`, `ScaApi.MerchantAuth`) and
   both put a `Sca.Scope` in the conn; controllers go through it.
 - An error goes out as `{"error": {"code", "message", "fields"}}`, the fields

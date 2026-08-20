@@ -170,6 +170,43 @@ defmodule ScaApi.MerchantApiTest do
       assert BindingRepo.list_by_tenant(ctx.tenant) |> length() == 1
     end
 
+    test "a merchant's own reference is the key: no header needed", ctx do
+      device = Fixtures.device(ctx.tenant)
+
+      body = %{
+        binding: device.binding.id,
+        external_id: "order-4471",
+        type: "payment",
+        title: "Payment confirmation",
+        params: %{amount: "10.00", currency: "EUR", beneficiary: "ACME"}
+      }
+
+      assert %{"id" => id, "external_id" => "order-4471"} =
+               ctx.conn |> post(~p"/api/merchant/v1/approvals", body) |> json_response(201)
+
+      assert %{"id" => ^id} =
+               ctx.conn |> post(~p"/api/merchant/v1/approvals", body) |> json_response(200)
+
+      assert [_one] = RequestRepo.list_pending(device.binding)
+    end
+
+    test "the header fills the reference in when the body has none", ctx do
+      device = Fixtures.device(ctx.tenant)
+
+      body = %{
+        binding: device.binding.id,
+        type: "login",
+        title: "Sign in",
+        params: %{ip: "1.2.3.4"}
+      }
+
+      assert %{"external_id" => "header-key-1"} =
+               ctx.conn
+               |> with_key("header-key-1")
+               |> post(~p"/api/merchant/v1/approvals", body)
+               |> json_response(201)
+    end
+
     test "a repeated approval raises one card, not two", ctx do
       device = Fixtures.device(ctx.tenant)
 

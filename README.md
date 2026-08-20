@@ -55,10 +55,10 @@ Both live in `apps/sca_api`; the routes are in `ScaApi.Router`.
   token per binding, issued at enrollment.
 - `/api/merchant/v1` — the merchant API: bindings and approvals. API key
   (`Authorization: Bearer sca_…`), issued in the merchant console under
-  Settings → API keys and shown once. Resources are named by uuid, and anything
-  that creates one honours an `Idempotency-Key` header: the key is stored on the
-  entity, unique per merchant, so a retry answers with the first result instead
-  of making a second entity.
+  Settings → API keys and shown once. Resources are named by uuid, and a retried
+  call answers with the first result instead of making a second entity: for an
+  approval the key is its `external_id`, for a binding an `Idempotency-Key`
+  header.
 
 ## Building and deploying
 
